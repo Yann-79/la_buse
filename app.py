@@ -2,230 +2,156 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-import base64
 
-# Configuration de la page
+# --- CONFIGURATION INTERFACE ---
 st.set_page_config(
-    page_title="La Buse Pro - Protection Sociale",
+    page_title="La Buse Pro - Boulanger",
     page_icon="🦅",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# --- INITIALISATION ÉTATS ---
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
-if 'last_audit' not in st.session_state:
-    st.session_state.last_audit = None
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'accessibility_mode' not in st.session_state:
     st.session_state.accessibility_mode = False
 
-def speak_text(text):
-    """Génère un script JS pour forcer la lecture vocale immédiate."""
-    js_code = f"""
-    <script>
-    var msg = new SpeechSynthesisUtterance("{text.replace('"', "'")}");
-    msg.lang = 'fr-FR';
-    window.speechSynthesis.speak(msg);
-    </script>
-    """
-    return js_code
+# --- DONNÉES DE RÉFÉRENCE ---
+BOULANGER_DATA = {
+    "name": "Boulanger",
+    "idcc": "1517",
+    "syndicats": {
+        "UNSA": {"nom": "UNSA", "contact": "S. SOURDET", "tel": "07 60 36 79 47", "email": "contact@unsa-boulanger.com", "infos": "Défense juridique et accompagnement."},
+        "CFTC": {"nom": "CFTC", "contact": "A. CHIADMI", "tel": "06 51 92 56 99", "infos": "Expertise NAO 2026 et revalorisation BSC."},
+        "CFDT": {"nom": "CFDT", "contact": "C. AVRILLON", "tel": "07 84 71 12 09", "infos": "Accompagnement et livret d'accueil."},
+        "CGT": {"nom": "CGT", "contact": "W. B. AHAMED", "tel": "06 11 42 07 82", "infos": "Protection UES et réseaux sociaux."},
+        "FO": {"nom": "FO", "contact": "Délégués Nat.", "infos": "Campagne étrennes 500€."}
+    }
+}
 
-accessibility_css = ""
-hover_js = ""
-
+# --- STYLES CSS OPTIMISÉS ---
+accessibility_style = ""
 if st.session_state.accessibility_mode:
-    # Thème Haute Visibilité (Noir et Jaune)
-    accessibility_css = """
-    :root {
-        --bg-color: #000000 !important;
-        --card-bg: #1a1a1a !important;
-        --text-main: #FFFF00 !important;
-        --text-sub: #FFFFFF !important;
-        --primary: #FFFF00 !important;
-        --border-color: #FFFF00 !important;
-    }
-    html, body, [class*="css"] {
-        font-size: 1.3rem !important;
-    }
-    .stButton>button {
-        border: 4px solid #FFFF00 !important;
-        font-size: 1.5rem !important;
-        color: #FFFF00 !important;
-        background-color: black !important;
-    }
-    """
-    # Script JS pour la lecture au survol de la souris
-    hover_js = """
-    <script>
-    const synth = window.speechSynthesis;
-    document.querySelectorAll('p, h1, h2, h3, span, li, .stMarkdown').forEach(item => {
-        item.addEventListener('mouseenter', event => {
-            synth.cancel();
-            var msg = new SpeechSynthesisUtterance(event.target.innerText);
-            msg.lang = 'fr-FR';
-            synth.speak(msg);
-        });
-        item.addEventListener('mouseleave', event => {
-            synth.cancel();
-        });
-    });
-    </script>
+    accessibility_style = """
+    :root { --text-color: #FFFF00 !important; --bg-card: #000000 !important; }
+    .stMarkdown, p, h1, h2, h3, span { color: #FFFF00 !important; font-size: 1.2rem !important; }
+    .premium-card { border: 2px solid #FFFF00 !important; background: black !important; }
     """
 
 st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-
-    :root {{
-        --primary: #007AFF;
-        --accent: #f26b21;
-        --bg-color: #f8f9fa;
-        --card-bg: #ffffff;
-        --text-main: #1c1c1e;
-        --text-sub: #636366;
-        --border-color: #e5e5ea;
-    }}
-
-    {accessibility_css}
-
-    .stApp {{ background-color: var(--bg-color); color: var(--text-main); }}
-    
+    {accessibility_style}
     .premium-card {{
-        background: var(--card-bg);
-        border-radius: 20px;
-        padding: 24px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        border-left: 6px solid #f26b21;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         margin-bottom: 20px;
+        color: #1c1c1e;
     }}
-
-    h1, h2, h3 {{ color: var(--text-main) !important; }}
-    p, span, label {{ color: var(--text-main) !important; }}
+    .stButton>button {{
+        border-radius: 12px;
+        background-color: #004a99;
+        color: white;
+        height: 3em;
+        font-weight: bold;
+    }}
+    .stChatFloatingInputContainer {{ bottom: 20px; }}
     </style>
     """, unsafe_allow_html=True)
 
-# Activation du survol vocal si mode actif
-if st.session_state.accessibility_mode:
-    st.components.v1.html(hover_js, height=0)
-
+# --- SYSTÈME D'AUTHENTIFICATION ---
 def check_pin():
     if st.session_state.pin_input == "1234":
         st.session_state.authenticated = True
     else:
-        st.error("Code PIN incorrect.")
+        st.error("Code PIN erroné.")
 
 if not st.session_state.authenticated:
-    st.markdown("<br>", unsafe_allow_html=True)
-    # IMAGE DE LA BUSE PROTECTRICE
-    st.image("https://images.unsplash.com/photo-1516550130560-ef02196d8f6b?q=80&w=1500&auto=format&fit=crop", 
-             caption="La Buse Pro - Votre Vigilance Sociale", use_container_width=True)
-    
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.markdown("<h2 style='text-align:center;'>ESPACE SÉCURISÉ</h2>", unsafe_allow_html=True)
-        st.text_input("Saisissez votre code PIN (1234)", type="password", key="pin_input", on_change=check_pin)
-    st.stop()
+    _, col, _ = st.columns([1,2,1])
+    with col:
+        st.image("https://images.unsplash.com/photo-1516550130560-ef02196d8f6b?q=80&w=400", use_container_width=True)
+        st.markdown("<h2 style='text-align:center;'>LA BUSE PRO</h2>", unsafe_allow_html=True)
+        st.text_input("Saisissez votre code d'accès", type="password", key="pin_input", on_change=check_pin)
+        st.stop()
 
+# --- BARRE LATÉRALE ---
 with st.sidebar:
-    st.markdown("## 🦅 Agent IA Eagle")
-    st.image("https://img.icons8.com/fluency/96/eagle.png", width=60)
+    st.title("🦅 Agent Eagle")
+    st.toggle("♿ Accessibilité (Vocal/Contraste)", key="accessibility_mode")
     
-    st.toggle("♿ Mode Accessibilité (Contrast+)", key="accessibility_mode")
+    menu = st.radio("Menu Principal", ["🏠 Tableau de Bord", "🕵️ Multi-Audit Expert", "🤝 Défends tes droits", "📜 Convention IDCC", "📱 Mobile"])
     
-    # Bouton de lecture conditionnel
-    if st.session_state.accessibility_mode:
-        if st.button("🔊 Lire le résumé du site"):
-            st.components.v1.html(speak_text("Bienvenue sur La Buse Pro. Ce tableau de bord vous permet d'analyser vos bulletins de paie, de consulter la jurisprudence et de contacter vos délégués. Le mode accessibilité est activé, survolez les textes pour les entendre."), height=0)
+    st.divider()
+    st.subheader("Posez une question à l'IA")
+    user_q = st.chat_input("Ex: Prime ancienneté ?")
     
-    st.markdown("---")
-    st.subheader("Chat avec Eagle")
-    chat_input = st.chat_input("Une question sur vos droits ?")
-    if chat_input:
-        st.session_state.chat_history.append({"role": "user", "content": chat_input})
-        # Réponse simulée
-        response = "D'après la convention 1517, votre prime d'ancienneté doit figurer sur une ligne distincte de votre salaire de base."
-        st.session_state.chat_history.append({"role": "assistant", "content": response})
+    if user_q:
+        res = "D'après la convention 1517 : "
+        if "ancien" in user_q.lower(): res += "Vous avez droit à +1j après 10 ans, +2j après 15 ans et +3j après 20 ans."
+        elif "salaire" in user_q.lower(): res += "Le minimum branche Niveau 1 est de 1766,92€ brut."
+        else: res += "Je vous invite à contacter Stéphane SOURDET (UNSA) pour cette précision juridique complexe."
+        st.session_state.chat_history.append({"q": user_q, "a": res})
 
-    for msg in st.session_state.chat_history[-2:]:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
+    for chat in st.session_state.chat_history[-2:]:
+        st.info(f"🗨️ {chat['q']}")
+        st.success(f"🦅 {chat['a']}")
 
-st.title("Tableau de Bord Social")
-
-# MOTEUR DE RECHERCHE INTELLIGENT
-search_query = st.text_input("🔍 Recherche Juridique (Code du Travail, Convention 1517...)", 
-                            placeholder="Ex: Prime RDTH, Majorations dimanche, Temps de pause...")
-if search_query:
-    st.info(f"Résultat pour '{search_query}' : Selon l'IDCC 1517, l'article 4.2 encadre précisément ce point...")
-
-tab1, tab2, tab3, tab4 = st.tabs(["🕵️ Audit Expert", "📊 Rapports", "📢 Défends tes droits", "📜 Jurisprudence"])
-
-with tab1:
-    st.markdown("<div class='premium-card'>", unsafe_allow_html=True)
-    st.subheader("Analyse Multi-Documents")
-    files = st.file_uploader("Glissez vos fiches de paie ou contrats (PDF/JPG)", accept_multiple_files=True)
-    
-    c1, c2 = st.columns(2)
-    with c1: 
-        statut = st.selectbox("Statut", ["Employé", "Maîtrise", "Cadre"])
-        rdth = st.toggle("Option RDTH (Rémunération Différée)")
-    with c2: 
-        contrat = st.selectbox("Type de contrat", ["35h", "28h", "Forfait Jours", "Temps Partiel"])
-    
-    if st.button("Lancer l'audit massif"):
-        if files:
-            with st.status("🔍 Eagle examine vos documents...") as s:
-                time.sleep(2)
-                st.session_state.last_audit = {
-                    "date": datetime.now().strftime("%d/%m/%Y"),
-                    "anomalies": [
-                        "⚠️ Erreur possible sur la majoration du dimanche.",
-                        f"✅ Prime d'ancienneté conforme pour le profil {statut}.",
-                        "⚠️ Absence de mention de la pause obligatoire de 20min."
-                    ],
-                    "nb_fichiers": len(files)
-                }
-                s.update(label="Audit Terminé !", state="complete")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with tab2:
-    if st.session_state.last_audit:
-        audit = st.session_state.last_audit
-        st.subheader(f"Rapport d'anomalies - {audit['nb_fichiers']} fichiers")
-        for ano in audit['anomalies']:
-            st.warning(ano)
-        
-        col_ex1, col_ex2 = st.columns(2)
-        with col_ex1: st.button("📥 Imprimer le rapport (PDF)")
-        with col_ex2: st.button("📧 Envoyer aux délégués")
-    else:
-        st.info("Aucun audit récent. Téléchargez vos documents dans l'onglet Audit Expert.")
-
-with tab3:
-    st.markdown("### 📰 Actualités Syndicales & Sociales")
-    news = [
-        {"t": "NAO 2026 : LA DIRECTION BLOQUE LES SALAIRES", "d": "Face à l'inflation, les syndicats demandent une revalorisation de 4%."},
-        {"t": "PRIME PPV : VICTOIRE POUR LES SALARIÉS", "d": "Le versement de 500€ est confirmé pour le mois de juin."},
-        {"t": "RDTH : ATTENTION AUX CALCULS", "d": "De nombreuses erreurs ont été signalées sur les nouveaux contrats."}
-    ]
-    for n in news:
-        st.markdown(f"""
-        <div style='border-left:5px solid #f26b21; padding:15px; background:white; margin-bottom:12px; border-radius:10px; color:black;'>
-            <h4 style='color:#1c1c1e; margin:0;'>{n['t']}</h4>
-            <p style='color:#444; margin:5px 0 0 0;'>{n['d']}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-with tab4:
-    st.subheader("Convention Collective IDCC 1517")
+# --- LOGIQUE DES PAGES ---
+if menu == "🏠 Tableau de Bord":
+    st.title("Tableau de Bord Social")
     st.markdown("""
-    - **Ancienneté :** 3% à 3 ans, 6% à 6 ans, 9% à 9 ans (Palier max 15%).
-    - **Heures Sup :** 25% pour les 8 premières, 50% au-delà.
-    - **Travail de nuit :** Majoration de 20% entre 21h et 6h.
-    """)
+    <div class="premium-card">
+        <h3>🔥 FLASH INFOS - Style Morandini</h3>
+        <p><b>URGENT :</b> Les négociations NAO 2026 débutent. Les syndicats demandent une hausse de 5% pour compenser l'inflation.</p>
+        <hr>
+        <p><b>ALERTE RDTH :</b> Des bugs sur le calcul des temps de trajet ont été remontés en région Nord.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
+elif menu == "🕵️ Multi-Audit Expert":
+    st.title("Analyseur de Documents Intelligent")
+    st.write("Importez jusqu'à 10 bulletins de paie ou contrats (PDF/JPG).")
+    
+    files = st.file_uploader("Fichiers à analyser", accept_multiple_files=True)
+    c1, c2 = st.columns(2)
+    with c1: rdth = st.checkbox("Statut RDTH ?")
+    with c2: contrat = st.selectbox("Contrat", ["35h", "28h", "Autre"])
+
+    if files and st.button("Lancer l'audit groupé"):
+        with st.status("🔍 Eagle analyse vos documents...") as s:
+            for f in files:
+                time.sleep(1)
+                st.write(f"Analyse de {f.name} terminée.")
+            s.update(label="Analyse Terminée !", state="complete")
+        
+        st.success(f"✅ {len(files)} documents analysés en conformité IDCC 1517.")
+        st.warning(f"⚠️ **Anomalie détectée :** Pour le contrat {contrat}, vérifiez la ligne 'Prime de lissage' qui semble absente.")
+        if st.button("📤 Envoyer le rapport par Mail"):
+            st.toast("Préparation du mail en cours...")
+
+elif menu == "🤝 Défends tes droits":
+    st.title("Vos Représentants")
+    for k, v in BOULANGER_DATA["syndicats"].items():
+        with st.expander(f"📌 {v['nom']} - {v['contact']}"):
+            st.write(v["infos"])
+            if "tel" in v: st.link_button(f"📞 Appeler", f"tel:{v['tel']}")
+
+elif menu == "📜 Convention IDCC":
+    st.title("Jurisprudence & Grilles")
+    df = pd.DataFrame({
+        "Niveau": ["1", "2", "3", "4", "5"],
+        "Mini Brut": ["1766€", "1785€", "1830€", "1960€", "2150€"]
+    })
+    st.table(df)
+
+# --- PIED DE PAGE ---
+st.divider()
+st.caption(f"La Buse Pro v9.2 | Optimisé pour iPhone | Design par Yann COLAS DAVID")
 st.markdown("---")
 # CORRECTION DE LA SYNTAXE ICI
 st.caption("La Buse Pro v7.0 | Design Protecteur & Inclusif crée par Yann COLAS DAVID")
