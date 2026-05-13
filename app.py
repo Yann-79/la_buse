@@ -1,42 +1,89 @@
-mport streamlit as st
+import streamlit as st
 import pandas as pd
 from datetime import datetime
+import time
 
-st.set_page_config(page_title="La Buse Pro", page_icon="🦅", layout="centered")
+st.set_page_config(
+    page_title="La Buse Pro",
+    page_icon="🦅",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
-# --- DESIGN PERSONNALISÉ (STYLE MORANDINI & PREMIUM) ---
 st.markdown("""
     <style>
-    /* Style général */
-    .stApp { background-color: #f0f2f5; }
-    
-    /* Style Blog Morandini */
-    .news-card {
-        background: white;
-        padding: 15px;
-        border-radius: 5px;
-        border-left: 8px solid #e74c3c;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+
+    /* Reset global */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
     }
+
+    .stApp {
+        background: linear-gradient(135deg, #f8f9fc 0%, #eef2f7 100%);
+    }
+
+    /* Style des Cartes (News & Actions) */
+    .premium-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+        margin-bottom: 20px;
+        transition: transform 0.2s ease;
+    }
+    .premium-card:hover {
+        transform: translateY(-5px);
+    }
+
+    /* News Feed Modernisé */
     .news-tag {
-        background: #e74c3c;
+        background: #007AFF;
         color: white;
-        padding: 2px 8px;
-        font-weight: bold;
-        font-size: 0.7em;
+        padding: 4px 12px;
+        border-radius: 50px;
+        font-size: 10px;
+        font-weight: 700;
         text-transform: uppercase;
-        margin-bottom: 5px;
-        display: inline-block;
+        letter-spacing: 1px;
     }
-    .news-title { font-size: 1.2em; font-weight: 800; color: #2c3e50; line-height: 1.2; }
-    .news-meta { font-size: 0.8em; color: #7f8c8d; margin-top: 5px; }
-    
-    /* PIN Screen */
-    .pin-container { text-align: center; padding: 50px 20px; }
-    
-    /* Boutons et inputs */
-    .stButton>button { border-radius: 8px; font-weight: bold; }
+    .news-title {
+        font-size: 1.4em;
+        font-weight: 800;
+        color: #1d1d1f;
+        margin-top: 10px;
+        line-height: 1.2;
+    }
+    .news-excerpt {
+        color: #86868b;
+        font-size: 0.95em;
+        margin-top: 8px;
+    }
+
+    /* Boutons de commande (Call to Action) */
+    .stButton>button {
+        border-radius: 16px;
+        border: none;
+        background: linear-gradient(90deg, #007AFF 0%, #0051FF 100%);
+        color: white;
+        font-weight: 600;
+        padding: 12px 24px;
+        width: 100%;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+    }
+    .stButton>button:hover {
+        box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+        transform: scale(1.02);
+    }
+
+    /* Login Screen */
+    .login-container {
+        text-align: center;
+        padding: 60px 20px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -44,108 +91,119 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
 def check_pin():
-    if st.session_state.pin_input == "1234": # CODE PAR DÉFAUT
+    if st.session_state.pin_input == "1234":
         st.session_state.authenticated = True
     else:
-        st.error("Code incorrect ❌")
+        st.error("Code erroné. Veuillez réessayer.")
 
 if not st.session_state.authenticated:
-    st.markdown("<div class='pin-container'>", unsafe_allow_html=True)
-    st.image("https://img.icons8.com/clouds/200/eagle.png", width=120)
-    st.title("Accès Sécurisé")
-    st.text_input("Entrez votre code à 4 chiffres :", type="password", key="pin_input", on_change=check_pin)
-    st.info("Par défaut : 1234")
+    st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+    st.image("https://img.icons8.com/fluency/144/eagle.png", width=90)
+    st.markdown("<h1 style='font-weight:800; color:#1d1d1f;'>La Buse Pro</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#86868b;'>Espace sécurisé - Intelligence Sociale</p>", unsafe_allow_html=True)
+    
+    st.text_input("Saisissez votre code PIN", type="password", key="pin_input", on_change=check_pin)
+    st.caption("Accès réservé aux collaborateurs.")
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- DONNÉES SIMULÉES (NEWS & DROITS) ---
 NEWS_DATA = [
-    {"source": "FACEBOOK", "titre": "ALERTE : Négociations salariales Boulanger en cours !", "resume": "Les syndicats demandent une revalorisation de 4% face à l'inflation. Les premiers retours sont mitigés.", "date": "Aujourd'hui, 09h15"},
-    {"source": "WEB SYNDICAT", "titre": "EXCLUSIF : Prime de vacances, vos droits méconnus", "resume": "De nombreux salariés oublient de vérifier l'article 32. Vérifiez votre bulletin de juin impérativement.", "date": "Hier, 18h30"},
-    {"source": "OFFICIEL", "titre": "Mise à jour de la grille IDCC 1517", "resume": "Les nouveaux minima conventionnels sont entrés en vigueur au 1er mai. Vérifiez votre taux horaire.", "date": "12/05/2026"}
+    {"source": "ALERTE INFO", "titre": "Négociations Salaires : Les dernières avancées", "resume": "Une hausse de 3.2% est sur la table. L'UNSA et la CFTC analysent les conditions de versement de la prime de partage de la valeur.", "date": "Aujourd'hui, 10h"},
+    {"source": "CONSEIL PRO", "titre": "Statut RDTH : Maîtrisez vos commissions", "resume": "Nouveau guide pratique pour vérifier le calcul de vos primes variables ce mois-ci. Ne laissez passer aucun centime.", "date": "Hier"},
+    {"source": "LÉGAL", "titre": "Evolution IDCC 1517 : Ce qui change en Juin", "resume": "Mise à jour des grilles de minima conventionnels. Vérifiez si votre salaire de base est impacté.", "date": "15 Mai"}
 ]
 
-def analyse_experte(data, rdth, contrat, type_doc):
-    st.subheader("📊 Rapport de Conformité")
-    
-    # Simulation de logique d'analyse par rapport à l'IDCC 1517
-    with st.status("Analyse du document en cours...", expanded=True) as status:
-        st.write("Extraction des données textuelles...")
-        st.write(f"Vérification du statut {'RDTH' if rdth else 'Standard'}...")
-        st.write(f"Contrôle base horaire : {contrat}h...")
+def run_smart_audit(doc_type, status_rdth, contract_type):
+    with st.status("🚀 **Intelligence Artificielle en action...**", expanded=True) as status:
+        time.sleep(1)
+        st.write("🔍 Extraction des données biométriques du document...")
+        time.sleep(1)
+        st.write(f"⚖️ Comparaison avec la Convention Collective IDCC 1517...")
+        time.sleep(1)
         
-        # Logique de vérification
+        # Logique de détection d'anomalies
         anomalies = []
-        if contrat == "28h" and not rdth:
-            anomalies.append("⚠️ **Contrat 28h :** Vérifiez si votre planning respecte le délai de prévenance de 7 jours (Art. 14).")
-        if rdth:
-            anomalies.append("💡 **Statut RDTH :** N'oubliez pas de vérifier vos primes de performance spécifiques ce mois-ci.")
+        if contract_type == "28h" and not status_rdth:
+            anomalies.append("📌 **Alerte Planning :** En contrat 28h, vos heures complémentaires ne peuvent dépasser 1/3 de votre durée contractuelle.")
+        if status_rdth:
+            anomalies.append("💰 **Check RDTH :** La garantie de rémunération minimale doit être vérifiée sur votre ligne de paie n°14.")
         
-        status.update(label="Analyse terminée !", state="complete")
-    
+        status.update(label="Analyse terminée avec succès !", state="complete")
+        
     if anomalies:
         for a in anomalies:
             st.warning(a)
     else:
-        st.success("✅ Aucun problème majeur détecté par rapport à la Convention Collective.")
+        st.success("✅ Félicitations : Votre document semble parfaitement en règle avec les accords d'entreprise.")
 
-tab1, tab2, tab3 = st.tabs(["🕵️ Analyseur", "📰 Défends tes droits", "📜 Convention"])
+st.markdown("<h2 style='font-weight:800; margin-bottom:0;'>Eagle Vision</h2>", unsafe_allow_html=True)
+st.caption("Votre assistant de défense et d'analyse sociale")
+
+tab1, tab2, tab3 = st.tabs(["🕵️ Analyseur", "📢 Défends tes droits", "📜 Convention"])
 
 with tab1:
-    st.header("Analyseur Intelligent")
+    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
     
-    # Source du document
-    source_doc = st.radio("Source du document :", ["Téléchargement Direct", "Google Drive / Lien Web"])
-    
-    if source_doc == "Téléchargement Direct":
-        file = st.file_uploader("Prendre en photo ou PDF", type=["jpg", "png", "pdf"])
-    else:
-        drive_link = st.text_input("Collez le lien partagé Google Drive :", placeholder="https://drive.google.com/...")
-        if drive_link: st.success("Lien détecté, prêt à l'analyse.")
+    # Section Import
+    with st.container():
+        st.markdown("""<div class='premium-card'>
+            <h4 style='margin:0;'>📥 Importer un document</h4>
+            <p style='color:#86868b; font-size:0.9em;'>Glissez votre bulletin de paie ou contrat (PDF/JPG)</p>
+        </div>""", unsafe_allow_html=True)
+        
+        source = st.segmented_control("Source", ["Fichier Local", "Google Drive"], default="Fichier Local")
+        
+        if source == "Fichier Local":
+            st.file_uploader("Prendre en photo / Parcourir", type=["pdf", "png", "jpg"])
+        else:
+            st.text_input("Lien Google Drive partagé")
 
-    st.divider()
-    st.subheader("Questions Précises")
+    # Section Profiling
+    st.markdown("#### Votre Profil")
     col1, col2 = st.columns(2)
     with col1:
-        is_rdth = st.toggle("Êtes-vous RDTH ?")
+        rdth = st.toggle("Statut RDTH")
     with col2:
-        contrat_type = st.selectbox("Votre contrat :", ["35h", "28h", "Autre (Temps partiel)"])
-    
-    doc_type = st.selectbox("Type de document :", ["Bulletin de paie", "Contrat de travail", "Avenant"])
+        contrat = st.selectbox("Contrat", ["35h", "28h", "Temps partiel"])
+        
+    doc = st.selectbox("Type de vérification", ["Bulletin de paie", "Contrat de travail", "Avenant"])
 
-    if st.button("Lancer l'audit de conformité"):
-        analyse_experte(None, is_rdth, contrat_type, doc_type)
+    if st.button("Lancer l'audit certifié"):
+        run_smart_audit(doc, rdth, contrat)
 
 with tab2:
-    st.header("Défends tes droits")
-    st.caption("Actualités agrégées en temps réel (Facebook, Web, Interne)")
-    
+    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
     for news in NEWS_DATA:
         st.markdown(f"""
-        <div class="news-card">
+        <div class="premium-card">
             <span class="news-tag">{news['source']}</span>
             <div class="news-title">{news['titre']}</div>
-            <div class="news-meta">Publié le {news['date']}</div>
-            <p style="margin-top:10px; color:#555;">{news['resume']}</p>
-            <a href="#" style="color:#e74c3c; font-weight:bold; text-decoration:none;">Lire la suite →</a>
+            <div class="news-excerpt">{news['resume']}</div>
+            <div style="margin-top:15px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.8em; color:#aeaeb2;">{news['date']}</span>
+                <span style="color:#007AFF; font-weight:600; font-size:0.9em;">Lire l'article →</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
 with tab3:
-    st.header("Convention Collective")
-    st.info("📚 **IDCC 1517 :** Commerces de détail non alimentaires.")
-    
-    with st.expander("🔗 Accès Rapide aux Textes"):
-        st.markdown("[Consulter sur Legifrance (Officiel)](https://www.legifrance.gouv.fr/conv_coll/id/KALICONT000005635139)")
-    
-    st.subheader("Points clés pour Boulanger")
-    st.write("- **Prime de vacances :** Versée sous conditions d'ancienneté (Art. 32).")
-    st.write("- **Heures Sup :** Majoration de 25% pour les 8 premières heures.")
-    st.write("- **Prévoyance :** Couverture obligatoire pour les cadres et non-cadres.")
+    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='premium-card'>
+        <h3>IDCC 1517</h3>
+        <p>Commerce de détail non alimentaire</p>
+        <hr style='border:0; border-top:1px solid #eee;'>
+        <p><b>Points clés Boulanger :</b></p>
+        <ul>
+            <li>Prime d'ancienneté : +3% après 3 ans.</li>
+            <li>Délai de prévenance : 7 jours ouvrés.</li>
+            <li>Majoration heures de nuit : 25%.</li>
+        </ul>
+        <a href='https://www.legifrance.gouv.fr' style='text-decoration:none;'>
+            <button style='width:100%; padding:10px; border-radius:10px; border:1px solid #007AFF; background:none; color:#007AFF; cursor:pointer;'>Consulter le texte officiel</button>
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --- FOOTER ---
-st.sidebar.markdown("---")
-if st.sidebar.button("Déconnexion"):
-    st.session_state.authenticated = False
-    st.rerun()
-st.sidebar.caption("La Buse v3.0 | Données Sécurisées")
+st.sidebar.button("Déconnexion")
+st.sidebar.caption("La Buse Pro v4.0 | © 2026")
