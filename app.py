@@ -222,6 +222,6 @@ with tab4:
     """)
 
 st.markdown("---")
-st.caption("La Buse Pro v7.0 | Design Protecteur & Inclusif" crée par Yann COLAS DAVID )
+st.caption"La Buse Pro v7.0 | Design Protecteur & Inclusif crée par Yann COLAS DAVID "
 
 st.sidebar.caption("La Buse Pro v6.5 | Mode Accessibilité Actif")
