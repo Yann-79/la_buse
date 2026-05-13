@@ -2,14 +2,13 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-import urllib.parse
-import json
 import base64
 import struct
+import json
 
 # Configuration de la page
 st.set_page_config(
-    page_title="La Buse Pro - Social Intelligence",
+    page_title="La Buse Pro - Protection Sociale",
     page_icon="🦅",
     layout="centered",
     initial_sidebar_state="expanded"
@@ -25,73 +24,55 @@ if 'chat_history' not in st.session_state:
 if 'accessibility_mode' not in st.session_state:
     st.session_state.accessibility_mode = False
 
-def pcm_to_wav(pcm_data, sample_rate=24000):
-    """Convertit les données PCM brutes de l'API Gemini en fichier WAV valide."""
-    num_channels = 1
-    sample_width = 2  # 16-bit
-    
-    header = struct.pack('<4sI4s4sIHHIIHH4sI',
-        b'RIFF', 36 + len(pcm_data), b'WAVE',
-        b'fmt ', 16, 1, num_channels, sample_rate,
-        sample_rate * num_channels * sample_width,
-        num_channels * sample_width, sample_width * 8,
-        b'data', len(pcm_data)
-    )
-    return header + pcm_data
+def speak_text(text):
+    """Utilise l'API Web Speech du navigateur pour une lecture immédiate."""
+    # Cette fonction génère un petit script JS pour forcer la lecture
+    js_code = f"""
+    <script>
+    var msg = new SpeechSynthesisUtterance("{text.replace('"', "'")}");
+    msg.lang = 'fr-FR';
+    window.speechSynthesis.speak(msg);
+    </script>
+    """
+    return js_code
 
-def speak_text(text, voice_name="Sadachbia"):
-    """Appelle l'API Gemini TTS pour générer une voix de synthèse."""
-    try:
-        api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=" # API Key auto-filled by UI
-        payload = {
-            "contents": [{"parts": [{"text": f"Lis ce contenu de manière claire et posée : {text}"}]}],
-            "generationConfig": {
-                "responseModalities": ["AUDIO"],
-                "speechConfig": {
-                    "voiceConfig": {
-                        "prebuiltVoiceConfig": {"voiceName": voice_name}
-                    }
-                }
-            }
-        }
-        
-        # Note: Dans un environnement réel, on utiliserait st.secrets pour la clé
-        response = st.session_state.get('last_tts_response', None)
-        
-        import requests
-        res = requests.post(api_url, json=payload)
-        if res.status_code == 200:
-            data = res.json()
-            audio_base64 = data['candidates'][0]['content']['parts'][0]['inlineData']['data']
-            pcm_bytes = base64.b64decode(audio_base64)
-            wav_bytes = pcm_to_wav(pcm_bytes)
-            return wav_bytes
-    except Exception as e:
-        st.error(f"Erreur audio : {e}")
-    return None
-
-# CSS avec support du Mode Accessibilité
+# CSS pour le design et l'accessibilité
 accessibility_css = ""
+hover_js = ""
+
 if st.session_state.accessibility_mode:
     accessibility_css = """
     :root {
         --bg-color: #000000 !important;
         --card-bg: #1a1a1a !important;
-        --text-main: #FFFF00 !important; /* Jaune sur noir pour contraste max */
+        --text-main: #FFFF00 !important;
         --text-sub: #FFFFFF !important;
         --primary: #FFFF00 !important;
         --border-color: #FFFF00 !important;
     }
     html, body, [class*="css"] {
-        font-size: 1.2rem !important; /* Texte plus grand */
-        line-height: 1.6 !important;
+        font-size: 1.25rem !important;
     }
     .stButton>button {
         border: 3px solid #FFFF00 !important;
-        font-size: 1.3rem !important;
-        height: auto !important;
-        padding: 15px !important;
+        font-size: 1.4rem !important;
+        color: #FFFF00 !important;
     }
+    """
+    # Script JS pour la lecture au survol
+    hover_js = """
+    <script>
+    document.querySelectorAll('p, h1, h2, h3, span, li, .stMarkdown').forEach(item => {
+        item.addEventListener('mouseenter', event => {
+            var msg = new SpeechSynthesisUtterance(event.target.innerText);
+            msg.lang = 'fr-FR';
+            window.speechSynthesis.speak(msg);
+        });
+        item.addEventListener('mouseleave', event => {
+            window.speechSynthesis.cancel();
+        });
+    });
+    </script>
     """
 
 st.markdown(f"""
@@ -101,65 +82,38 @@ st.markdown(f"""
     :root {{
         --primary: #007AFF;
         --accent: #f26b21;
-        --bg-color: #f2f2f7;
+        --bg-color: #f8f9fa;
         --card-bg: #ffffff;
         --text-main: #1c1c1e;
         --text-sub: #636366;
-        --border-color: #d1d1d6;
-    }}
-
-    @media (prefers-color-scheme: dark) {{
-        :root {{
-            --bg-color: #000000;
-            --card-bg: #1c1c1e;
-            --text-main: #ffffff;
-            --text-sub: #aeaeb2;
-            --border-color: #3a3a3c;
-        }}
+        --border-color: #e5e5ea;
     }}
 
     {accessibility_css}
 
-    html, body, [class*="css"] {{
-        font-family: 'Inter', sans-serif;
-        color: var(--text-main) !important;
-    }}
-
     .stApp {{ background-color: var(--bg-color); }}
-
-    label, .stMarkdown p, .stCaption {{
-        color: var(--text-main) !important;
-        font-weight: 600 !important;
-    }}
-
+    
     .premium-card {{
         background: var(--card-bg);
         border-radius: 20px;
         padding: 24px;
         border: 1px solid var(--border-color);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
         margin-bottom: 20px;
     }}
 
-    .news-card {{
-        border-left: 6px solid var(--accent);
-        background: var(--card-bg);
-        padding: 15px;
-        margin-bottom: 15px;
-        border-radius: 0 12px 12px 0;
-    }}
-    
-    .audio-btn {{
-        background: none;
-        border: 1px solid var(--primary);
-        color: var(--primary);
-        border-radius: 20px;
-        padding: 2px 10px;
-        font-size: 0.8em;
-        cursor: pointer;
+    .eagle-banner {{
+        width: 100%;
+        border-radius: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
     }}
     </style>
     """, unsafe_allow_html=True)
+
+# Injection du script de survol si mode actif
+if st.session_state.accessibility_mode:
+    st.components.v1.html(hover_js, height=0)
 
 def check_pin():
     if st.session_state.pin_input == "1234":
@@ -168,34 +122,33 @@ def check_pin():
         st.error("Code PIN incorrect.")
 
 if not st.session_state.authenticated:
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    # Image de buse majestueuse et protectrice
+    st.image("https://images.unsplash.com/photo-1535136128062-8e3676c8c77f?q=80&w=1000&auto=format&fit=crop", 
+             caption="La Buse Pro - Votre Vigilance Sociale", use_container_width=True)
+    
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        st.markdown("<div style='text-align:center; padding-top:50px;'>", unsafe_allow_html=True)
-        st.image("https://img.icons8.com/fluency/144/eagle.png", width=100)
-        st.markdown("<h1>LA BUSE PRO</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='font-weight:700;'>Identifiez-vous</p>", unsafe_allow_html=True)
-        st.text_input("Code PIN (1234)", type="password", key="pin_input", on_change=check_pin)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align:center;'>ESPACE SÉCURISÉ</h1>", unsafe_allow_html=True)
+        st.text_input("Code PIN d'accès (1234)", type="password", key="pin_input", on_change=check_pin)
     st.stop()
 
 with st.sidebar:
-    st.markdown("### 🛠️ Paramètres")
+    st.markdown("## 🦅 Agent Eagle")
+    st.image("https://img.icons8.com/fluency/96/eagle.png", width=60)
+    
     st.toggle("♿ Mode Accessibilité (Contrast+)", key="accessibility_mode")
     
+    if st.session_state.accessibility_mode:
+        if st.button("🔊 Lire le résumé du site"):
+            st.components.v1.html(speak_text("Bienvenue sur votre tableau de bord La Buse Pro. Ce site vous permet de chercher dans le code du travail, d'analyser vos bulletins et de suivre les actualités de Boulanger."), height=0)
+    
     st.markdown("---")
-    st.markdown("### 🦅 Agent IA Eagle")
-    
-    if st.button("🔊 Lire le résumé du site"):
-        with st.spinner("Génération de l'audio..."):
-            audio = speak_text("Bienvenue sur La Buse Pro. Ce tableau de bord vous permet d'analyser vos bulletins de paie, de consulter vos droits et les actualités syndicales de Boulanger. Je suis Eagle, votre assistant juridique.")
-            if audio:
-                st.audio(audio, format="audio/wav", autoplay=True)
-    
-    chat_input = st.chat_input("Votre question...")
+    chat_input = st.chat_input("Posez une question à Eagle...")
     if chat_input:
         st.session_state.chat_history.append({"role": "user", "content": chat_input})
-        time.sleep(1)
-        response = "D'après l'analyse, l'anomalie sur la prime d'ancienneté est confirmée."
+        # Simulation réponse IA
+        response = "D'après la convention 1517, vous avez droit à une pause de 20 minutes après 6h de travail."
         st.session_state.chat_history.append({"role": "assistant", "content": response})
 
     for msg in st.session_state.chat_history[-2:]:
@@ -203,28 +156,32 @@ with st.sidebar:
             st.write(msg["content"])
 
 st.title("Tableau de Bord Social")
-tab1, tab2, tab3, tab4 = st.tabs(["🕵️ Expert", "📊 Rapports", "📢 Défends-toi", "📜 Jurisprudence"])
+
+# Moteur de recherche juridique (Toujours visible)
+search_query = st.text_input("🔍 Recherche Intelligente (Code du Travail / Convention 1517)", placeholder="Ex: Prime d'ancienneté, rupture conventionnelle...")
+if search_query:
+    st.info(f"Résultat pour '{search_query}' : L'Article L1234-1 précise les modalités de préavis...")
+
+tab1, tab2, tab3, tab4 = st.tabs(["🕵️ Audit Expert", "📊 Rapports", "📢 Défends tes droits", "📜 Jurisprudence"])
 
 with tab1:
     st.markdown("<div class='premium-card'>", unsafe_allow_html=True)
-    st.subheader("Audit Multi-Documents")
-    files = st.file_uploader("Glissez vos bulletins (PDF/JPG)", accept_multiple_files=True)
+    st.subheader("Analyse Multi-Documents")
+    files = st.file_uploader("Glissez vos documents (PDF/JPG)", accept_multiple_files=True)
     
-    st.markdown("---")
-    c1, c2 = st.columns(2)
-    with c1:
-        statut = st.selectbox("Statut", ["Employé", "Agent de Maîtrise", "Cadre"])
-    with c2:
-        contrat = st.selectbox("Contrat", ["35h", "28h", "Temps Partiel"])
+    c1, c2, c3 = st.columns(3)
+    with c1: statut = st.selectbox("Statut", ["Employé", "Maîtrise", "Cadre"])
+    with c2: contrat = st.selectbox("Contrat", ["35h", "28h", "Autre"])
+    with c3: rdth = st.toggle("Option RDTH")
     
-    if st.button("Lancer l'audit de masse"):
+    if st.button("Lancer l'audit massif"):
         if files:
-            with st.status("🔍 Analyse en cours...", expanded=True) as s:
-                time.sleep(1.5)
+            with st.status("🔍 la buse cherche sa proie...") as s:
+                time.sleep(2)
                 st.session_state.last_audit = {
                     "date": datetime.now().strftime("%d/%m/%Y"),
-                    "anomalies": ["Erreur de calcul sur la prime d'ancienneté (Code 4.2).", "Absence de majoration sur les heures du dimanche."],
-                    "statut": statut
+                    "anomalies": ["Erreur de majoration dimanche (ligne 14).", "Anomalie calcul prime RDTH confirmée."],
+                    "nb_fichiers": len(files)
                 }
                 s.update(label="Audit Terminé !", state="complete")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -232,44 +189,39 @@ with tab1:
 with tab2:
     if st.session_state.last_audit:
         audit = st.session_state.last_audit
-        st.subheader(f"Rapport du {audit['date']}")
-        
-        col_title, col_audio = st.columns([0.8, 0.2])
-        with col_audio:
-            if st.button("🔊 Écouter"):
-                txt = "Voici votre rapport d'audit. " + " ".join(audit['anomalies'])
-                audio = speak_text(txt)
-                if audio: st.audio(audio, format="audio/wav", autoplay=True)
-        
+        st.subheader(f"Rapport d'anomalies - {audit['nb_fichiers']} fichiers")
         for ano in audit['anomalies']:
-            st.markdown(f"<div class='anomalie-box' style='background:rgba(255,59,48,0.1); padding:10px; border-radius:10px; margin-bottom:10px;'>⚠️ {ano}</div>", unsafe_allow_html=True)
+            st.error(f"⚠️ {ano}")
+        
+        col_ex1, col_ex2 = st.columns(2)
+        with col_ex1: st.button("📥 Imprimer le rapport")
+        with col_ex2: st.button("📧 Envoyer aux délégués")
     else:
-        st.info("Utilisez l'onglet Expert pour générer un rapport.")
+        st.info("Aucun audit en cours. Utilisez l'onglet Audit Expert.")
 
 with tab3:
-    st.subheader("Actualités Syndicales")
-    news_items = [
-        {"titre": "NAO 2026 : Progrès en cours", "desc": "Les négociations sur les salaires ont débuté."},
-        {"titre": "Prime PPV", "desc": "Versement prévu sur la paie de juin."}
+    st.markdown("### 📰 Actualités Syndicales Boulanger")
+    news = [
+        {"t": "NAO 2026 : LA DIRECTION BLOQUE !", "d": "Les syndicats appellent à la vigilance sur les salaires."},
+        {"t": "PRIME PPV : 500€ POUR LES LUTINS", "d": "Victoire syndicale sur le versement de juin."}
     ]
-    
-    for i, n in enumerate(news_items):
-        with st.container():
-            st.markdown(f"""
-            <div class="news-card">
-                <strong>{n['titre']}</strong><br>
-                <small>{n['desc']}</small>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"🔊 Lire l'actu {i+1}", key=f"news_{i}"):
-                audio = speak_text(f"{n['titre']}. {n['desc']}")
-                if audio: st.audio(audio, format="audio/wav", autoplay=True)
+    for n in news:
+        st.markdown(f"""
+        <div style='border-left:5px solid red; padding:15px; background:white; margin-bottom:10px; border-radius:0 10px 10px 0;'>
+            <h4 style='color:black; margin:0;'>{n['t']}</h4>
+            <p style='color:#333; margin:5px 0 0 0;'>{n['d']}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 with tab4:
-    st.subheader("Convention IDCC 1517")
-    st.info("Focus Ancienneté : 3% après 3 ans, 6% après 6 ans.")
-    if st.button("🔊 Lire les règles d'ancienneté"):
-        audio = speak_text("L'ancienneté dans la convention collective 1517 prévoit une majoration de salaire de 3 pourcent après 3 ans de présence, 6 pourcent après 6 ans, et 9 pourcent après 9 ans.")
-        if audio: st.audio(audio, format="audio/wav", autoplay=True)
+    st.subheader("Convention Collective 1517")
+    st.markdown("""
+    - **Ancienneté :** 3% à 3 ans, 6% à 6 ans, 9% à 9 ans...
+    - **Heures Supplémentaires :** Majoration de 25% pour les 8 premières heures.
+    - **Travail du Dimanche :** Majoration de 100% du salaire horaire.
+    """)
+
+st.markdown("---")
+st.caption("La Buse Pro v7.0 | Design Protecteur & Inclusif" crée par Yann COLAS DAVID )
 
 st.sidebar.caption("La Buse Pro v6.5 | Mode Accessibilité Actif")
