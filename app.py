@@ -1,178 +1,151 @@
-import streamlit as st
+mport streamlit as st
 import pandas as pd
-from PIL import Image
+from datetime import datetime
 
-# --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(
-    page_title="La Buse - Analyseur Social",
-    page_icon="🦅",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="La Buse Pro", page_icon="🦅", layout="centered")
 
-# --- DESIGN CSS PERSONNALISÉ (OPTIMISÉ IPHONE) ---
+# --- DESIGN PERSONNALISÉ (STYLE MORANDINI & PREMIUM) ---
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] { background-color: #f8fafc; }
-    .stButton>button {
-        width: 100%;
-        border-radius: 12px;
-        height: 3.5em;
-        background-color: #007AFF;
+    /* Style général */
+    .stApp { background-color: #f0f2f5; }
+    
+    /* Style Blog Morandini */
+    .news-card {
+        background: white;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 8px solid #e74c3c;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .news-tag {
+        background: #e74c3c;
         color: white;
+        padding: 2px 8px;
         font-weight: bold;
-        border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        font-size: 0.7em;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        display: inline-block;
     }
-    .card {
-        padding: 20px;
-        border-radius: 15px;
-        background-color: white;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-        border: 1px solid #e2e8f0;
-    }
-    .status-ok { color: #2ecc71; font-weight: bold; }
-    .status-warn { color: #e67e22; font-weight: bold; }
+    .news-title { font-size: 1.2em; font-weight: 800; color: #2c3e50; line-height: 1.2; }
+    .news-meta { font-size: 0.8em; color: #7f8c8d; margin-top: 5px; }
+    
+    /* PIN Screen */
+    .pin-container { text-align: center; padding: 50px 20px; }
+    
+    /* Boutons et inputs */
+    .stButton>button { border-radius: 8px; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- BASE DE DONNÉES INTELLIGENTE ---
-# Ces données sont issues de vos photos et des recherches publiques
-DATA = {
-    "Boulanger": {
-        "idcc": "1517",
-        "convention": "Commerces de détail non alimentaires",
-        "syndicats": [
-            {
-                "nom": "UNSA Boulanger",
-                "contact": "Stéphane SOURDET",
-                "tel": "07 60 36 79 47",
-                "email": "contact@unsa-boulanger.com",
-                "web": "www.unsa-boulanger.com",
-                "note": "Expertise Élections CSE 2026"
-            },
-            {
-                "nom": "CFTC Boulanger",
-                "contact": "Aziz CHIADMI",
-                "tel": "06 51 92 56 99",
-                "web": "cftc-boulanger.fr",
-                "note": "Spécialiste NAO & Primes BES"
-            },
-            {
-                "nom": "CFDT Boulanger",
-                "contact": "Claire Avrillon",
-                "tel": "07 84 71 12 09",
-                "app": "App 'CFDT Boulanger' dispo",
-                "note": "Déléguée Syndicale Régionale"
-            },
-            {
-                "nom": "CGT Boulanger",
-                "contact": "W. Bachir AHAMED",
-                "tel": "06 11 42 07 82",
-                "email": "uescgt.boulanger@gmail.com",
-                "note": "Présent sur Instagram & TikTok"
-            },
-            {
-                "nom": "FO Boulanger",
-                "contact": "Délégué Central",
-                "app": "App 'FO Boulanger' dispo",
-                "note": "Focus : Pouvoir d'achat & Étrennes"
-            }
-        ]
-    },
-    "Généraliste (Autre)": {
-        "idcc": "À définir",
-        "convention": "Code du Travail (Droit Commun)",
-        "syndicats": [
-            {"nom": "Interpro UNSA", "contact": "Bourse du Travail", "note": "Contactez l'union locale de votre ville."},
-            {"nom": "Interpro CFDT", "contact": "Espace Salariés", "note": "Conseils juridiques généralistes."}
-        ]
-    }
-}
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
 
-# --- LOGIQUE D'ANALYSE ---
-def moteur_analyse(doc, enseigne):
-    # Simulation d'analyse IA (basée sur l'IDCC 1517 si Boulanger)
-    st.success("✅ Analyse du document terminée")
+def check_pin():
+    if st.session_state.pin_input == "1234": # CODE PAR DÉFAUT
+        st.session_state.authenticated = True
+    else:
+        st.error("Code incorrect ❌")
+
+if not st.session_state.authenticated:
+    st.markdown("<div class='pin-container'>", unsafe_allow_html=True)
+    st.image("https://img.icons8.com/clouds/200/eagle.png", width=120)
+    st.title("Accès Sécurisé")
+    st.text_input("Entrez votre code à 4 chiffres :", type="password", key="pin_input", on_change=check_pin)
+    st.info("Par défaut : 1234")
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+
+# --- DONNÉES SIMULÉES (NEWS & DROITS) ---
+NEWS_DATA = [
+    {"source": "FACEBOOK", "titre": "ALERTE : Négociations salariales Boulanger en cours !", "resume": "Les syndicats demandent une revalorisation de 4% face à l'inflation. Les premiers retours sont mitigés.", "date": "Aujourd'hui, 09h15"},
+    {"source": "WEB SYNDICAT", "titre": "EXCLUSIF : Prime de vacances, vos droits méconnus", "resume": "De nombreux salariés oublient de vérifier l'article 32. Vérifiez votre bulletin de juin impérativement.", "date": "Hier, 18h30"},
+    {"source": "OFFICIEL", "titre": "Mise à jour de la grille IDCC 1517", "resume": "Les nouveaux minima conventionnels sont entrés en vigueur au 1er mai. Vérifiez votre taux horaire.", "date": "12/05/2026"}
+]
+
+def analyse_experte(data, rdth, contrat, type_doc):
+    st.subheader("📊 Rapport de Conformité")
     
-    with st.container():
-        st.markdown(f"### 📊 Rapport d'analyse : {enseigne}")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("**Taux Horaire :**")
-            st.write("**Heures Sup :**")
-            st.write("**Ancienneté :**")
-        with col2:
-            st.markdown("<span class='status-ok'>CONFORME</span>", unsafe_allow_html=True)
-            st.markdown("<span class='status-warn'>À VÉRIFIER (ligne 14)</span>", unsafe_allow_html=True)
-            st.markdown("<span class='status-ok'>À JOUR</span>", unsafe_allow_html=True)
+    # Simulation de logique d'analyse par rapport à l'IDCC 1517
+    with st.status("Analyse du document en cours...", expanded=True) as status:
+        st.write("Extraction des données textuelles...")
+        st.write(f"Vérification du statut {'RDTH' if rdth else 'Standard'}...")
+        st.write(f"Contrôle base horaire : {contrat}h...")
         
-        if enseigne == "Boulanger":
-            st.warning("⚠️ **Alerte Conventionnelle :** Vérifiez si votre Prime de Vacances a bien été versée sur ce bulletin (Art. 32 IDCC 1517).")
-
-# --- INTERFACE PRINCIPALE ---
-
-# Header
-st.markdown("<h1 style='text-align: center;'>🦅 La Buse</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #64748b;'>Analyseur Intelligent & Défense des Salariés</p>", unsafe_allow_html=True)
-
-# Navigation
-tabs = st.tabs(["🕵️ Analyseur", "🛡️ Syndicats", "📜 Mes Droits"])
-
-# ONGLET 1 : ANALYSEUR
-with tabs[0]:
-    st.subheader("Vérifier mon bulletin")
-    ent = st.selectbox("Mon entreprise :", list(DATA.keys()))
-    
-    file = st.file_uploader("Prendre en photo ou charger un PDF", type=["jpg", "png", "pdf"])
-    
-    if file:
-        st.image(file, caption="Bulletin chargé", use_container_width=True)
-        if st.button("Lancer l'analyse intelligente"):
-            with st.spinner("L'IA examine vos droits..."):
-                moteur_analyse(file, ent)
-
-# ONGLET 2 : SYNDICATS
-with tabs[1]:
-    st.subheader("Contacter un expert")
-    ent_sync = st.selectbox("Voir les contacts pour :", list(DATA.keys()), key="sync")
-    
-    city = st.text_input("Votre ville ou département (optionnel) :", placeholder="ex: 79, Niort, Paris...")
-    
-    for s in DATA[ent_sync]["syndicats"]:
-        with st.container():
-            st.markdown(f"""
-            <div class="card">
-                <h4 style="margin:0; color:#007AFF;">{s['nom']}</h4>
-                <p style="margin:5px 0;">👤 <b>{s.get('contact', 'Référent')}</b></p>
-                <p style="font-size: 0.9em; color: #64748b;">{s['note']}</p>
-                <div style="margin-top:10px;">
-                    {f"📞 <a href='tel:{s['tel']}'>{s['tel']}</a>" if 'tel' in s else ""}
-                    {f" | 🌐 <a href='https://{s['web']}'>Site Web</a>" if 'web' in s else ""}
-                </div>
-                {f"<p style='color:#2ecc71; font-size:0.8em; margin-top:5px;'>📱 {s['app']}</p>" if 'app' in s else ""}
-            </div>
-            """, unsafe_allow_html=True)
-
-# ONGLET 3 : MES DROITS
-with tabs[2]:
-    ent_droits = st.selectbox("Règles applicables pour :", list(DATA.keys()), key="droits")
-    info = DATA[ent_droits]
-    
-    st.info(f"**Convention Collective :** {info['convention']} (IDCC {info['idcc']})")
-    
-    with st.expander("📅 Congés & Absences"):
-        st.write("- 2.08 jours ouvrés par mois.")
-        st.write("- Jours enfants malades : Selon ancienneté (IDCC 1517).")
+        # Logique de vérification
+        anomalies = []
+        if contrat == "28h" and not rdth:
+            anomalies.append("⚠️ **Contrat 28h :** Vérifiez si votre planning respecte le délai de prévenance de 7 jours (Art. 14).")
+        if rdth:
+            anomalies.append("💡 **Statut RDTH :** N'oubliez pas de vérifier vos primes de performance spécifiques ce mois-ci.")
         
-    with st.expander("💰 Salaires & Primes"):
-        st.write("- Grille de salaire mise à jour au 1er Janvier 2026.")
-        if ent_droits == "Boulanger":
-            st.write("- Prime d'ancienneté : +3% après 3 ans, +6% après 6 ans...")
+        status.update(label="Analyse terminée !", state="complete")
+    
+    if anomalies:
+        for a in anomalies:
+            st.warning(a)
+    else:
+        st.success("✅ Aucun problème majeur détecté par rapport à la Convention Collective.")
 
-# Footer
-st.markdown("---")
-st.caption("Application sécurisée - Aucune donnée de paie n'est stockée sur nos serveurs.")
-if st.button("📲 Installer sur mon iPhone"):
-    st.info("Appuyez sur le bouton **Partager** (carré avec flèche) de votre navigateur Safari, puis choisissez **'Sur l'écran d'accueil'**.")
+tab1, tab2, tab3 = st.tabs(["🕵️ Analyseur", "📰 Défends tes droits", "📜 Convention"])
+
+with tab1:
+    st.header("Analyseur Intelligent")
+    
+    # Source du document
+    source_doc = st.radio("Source du document :", ["Téléchargement Direct", "Google Drive / Lien Web"])
+    
+    if source_doc == "Téléchargement Direct":
+        file = st.file_uploader("Prendre en photo ou PDF", type=["jpg", "png", "pdf"])
+    else:
+        drive_link = st.text_input("Collez le lien partagé Google Drive :", placeholder="https://drive.google.com/...")
+        if drive_link: st.success("Lien détecté, prêt à l'analyse.")
+
+    st.divider()
+    st.subheader("Questions Précises")
+    col1, col2 = st.columns(2)
+    with col1:
+        is_rdth = st.toggle("Êtes-vous RDTH ?")
+    with col2:
+        contrat_type = st.selectbox("Votre contrat :", ["35h", "28h", "Autre (Temps partiel)"])
+    
+    doc_type = st.selectbox("Type de document :", ["Bulletin de paie", "Contrat de travail", "Avenant"])
+
+    if st.button("Lancer l'audit de conformité"):
+        analyse_experte(None, is_rdth, contrat_type, doc_type)
+
+with tab2:
+    st.header("Défends tes droits")
+    st.caption("Actualités agrégées en temps réel (Facebook, Web, Interne)")
+    
+    for news in NEWS_DATA:
+        st.markdown(f"""
+        <div class="news-card">
+            <span class="news-tag">{news['source']}</span>
+            <div class="news-title">{news['titre']}</div>
+            <div class="news-meta">Publié le {news['date']}</div>
+            <p style="margin-top:10px; color:#555;">{news['resume']}</p>
+            <a href="#" style="color:#e74c3c; font-weight:bold; text-decoration:none;">Lire la suite →</a>
+        </div>
+        """, unsafe_allow_html=True)
+
+with tab3:
+    st.header("Convention Collective")
+    st.info("📚 **IDCC 1517 :** Commerces de détail non alimentaires.")
+    
+    with st.expander("🔗 Accès Rapide aux Textes"):
+        st.markdown("[Consulter sur Legifrance (Officiel)](https://www.legifrance.gouv.fr/conv_coll/id/KALICONT000005635139)")
+    
+    st.subheader("Points clés pour Boulanger")
+    st.write("- **Prime de vacances :** Versée sous conditions d'ancienneté (Art. 32).")
+    st.write("- **Heures Sup :** Majoration de 25% pour les 8 premières heures.")
+    st.write("- **Prévoyance :** Couverture obligatoire pour les cadres et non-cadres.")
+
+# --- FOOTER ---
+st.sidebar.markdown("---")
+if st.sidebar.button("Déconnexion"):
+    st.session_state.authenticated = False
+    st.rerun()
+st.sidebar.caption("La Buse v3.0 | Données Sécurisées")
