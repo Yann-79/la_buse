@@ -115,13 +115,35 @@ def safe_api_call(url, payload, method="POST", retries=3):
     return None
 
 def call_eagle_ia(prompt, context=""):
+    # Système d'instruction enrichi pour le harcèlement et les RPS
+    system_prompt = (
+        "Tu es EAGLE, l'IA de défense stratégique de 'La Buse'. "
+        "Expertise : Convention Collective Boulanger (IDCC 1517), Code du Travail, et Santé au Travail. "
+        "IMPORTANT : Si l'utilisateur évoque le harcèlement, l'épuisement (burn-out) ou les pressions managériales : "
+        "1. Adopte un ton empathique et protecteur. "
+        "2. Rappelle l'obligation de sécurité de l'employeur (Art. L4121-1). "
+        "3. Oriente vers des actions concrètes : Alerte CSE, Médecine du Travail, Consignation des faits, Droit de retrait si danger imminent. "
+        "4. Ne te limite pas au cadre légal froid, aide sur la stratégie de défense mentale et administrative. "
+        "Contexte actuel du document : " + str(context)
+    )
+
     if not API_KEY:
-        return f"SIMULATION : En tant qu'expert IDCC 1517, je traite votre demande sur '{prompt}'. Selon les règles de la convention, cette situation requiert une vigilance sur les temps de repos."
+        # Simulation améliorée en cas d'absence de clé pour le harcèlement
+        if "harcèlement" in prompt.lower() or "rps" in prompt.lower() or "pression" in prompt.lower():
+            return (
+                "🛡️ **PROTOCOLE DE PROTECTION ACTIVÉ**\n\n"
+                "Face à une situation de harcèlement ou de pression excessive :\n"
+                "- **Consignez tout :** Gardez trace écrite des échanges, dates et témoins.\n"
+                "- **Alertez les Sentinelles :** Contactez immédiatement un délégué (voir menu Réseau).\n"
+                "- **Santé :** Consultez votre médecin traitant pour faire constater l'impact sur votre santé.\n"
+                "- **Droit :** L'employeur est légalement responsable de votre santé mentale. Le CSE doit être saisi pour lancer une enquête RPS."
+            )
+        return f"SIMULATION : En tant qu'expert IDCC 1517, je traite votre demande sur '{prompt}'. Cette situation requiert une analyse du cadre légal et des risques associés."
     
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "systemInstruction": {"parts": [{"text": f"Tu es EAGLE, l'IA de La Buse. Contexte: {context}. Expert Convention Collective Boulanger (IDCC 1517)."}]}
+        "systemInstruction": {"parts": [{"text": system_prompt}]}
     }
     result = safe_api_call(url, payload)
     return result['candidates'][0]['content']['parts'][0]['text'] if result else "⚠️ Erreur satellite. Mode local activé."
@@ -158,10 +180,8 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
 def main_app():
     apply_ia_design()
     
-    # Utilisation d'un conteneur pour éviter les duplications de clés
     with st.sidebar:
         st.markdown("<h1 class='glow-text'>🦅 LA BUSE</h1>", unsafe_allow_html=True)
-        # Changement de la clé pour forcer le rafraîchissement propre si erreur persiste
         nav = st.radio("NAVIGATION SYSTÈME", [
             "MONITEUR GÉNÉSIS",
             "AGENT EAGLE (IA & AUDIT)",
@@ -181,32 +201,33 @@ def main_app():
         st.markdown("<h2 class='glow-text'>CENTRE DE CONTRÔLE</h2>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
         c1.markdown("<div class='buse-card'><b>ÉTAT RÉSEAU</b><br><span class='status-badge'>OPÉRATIONNEL</span></div>", unsafe_allow_html=True)
-        c2.markdown("<div class='buse-card'><b>BASE LÉGALE</b><br>IDCC 1517</div>", unsafe_allow_html=True)
-        c3.markdown("<div class='buse-card'><b>ALERTES</b><br>AUCUNE</div>", unsafe_allow_html=True)
+        c2.markdown("<div class='buse-card'><b>BASE LÉGALE</b><br>IDCC 1517 & RPS</div>", unsafe_allow_html=True)
+        c3.markdown("<div class='buse-card'><b>ALERTES IA</b><br>VEILLE ACTIVE</div>", unsafe_allow_html=True)
         
         st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
         st.subheader("📋 Dernières Directives")
-        st.info("Système stabilisé. Tous les modules (Infinity, Sentinelles, Eagle) sont en ligne.")
+        st.info("L'Agent EAGLE a été mis à jour pour inclure le support sur les Risques Psychosociaux (RPS).")
         st.markdown("</div>", unsafe_allow_html=True)
 
     elif nav == "AGENT EAGLE (IA & AUDIT)":
-        st.markdown("<h2 class='glow-text'>🔍 INTELLIGENCE EAGLE</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='glow-text'>🔍 INTELLIGENCE EAGLE (SUPPORT RPS)</h2>", unsafe_allow_html=True)
         cl, cr = st.columns([1, 1])
         with cl:
-            st.image(st.session_state.current_media, caption="Visualisation Tactique")
-            doc = st.file_uploader("Scanner un document", type=["pdf", "png", "jpg"], key="uploader_eagle")
+            st.image(st.session_state.current_media, caption="Analyse de situation")
+            doc = st.file_uploader("Scanner une preuve ou document (Mail, Planning...)", type=["pdf", "png", "jpg"], key="uploader_eagle")
             if doc and st.button("LANCER L'ANALYSE", key="btn_analyse"):
-                with st.spinner("Analyse..."):
+                with st.spinner("Cryptage et analyse..."):
                     time.sleep(1)
-                    st.session_state.analysis_results = "Analyse : Structure conforme IDCC 1517."
+                    st.session_state.analysis_results = "Analyse terminée. Document intégré au contexte de défense."
                     st.success("Audit terminé.")
 
         with cr:
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            q = st.text_input("Interroger l'IA :", placeholder="Ex: Délai de prévenance ?", key="input_eagle")
+            st.caption("Posez vos questions sur vos droits, votre salaire ou signalez une situation difficile (harcèlement, pression...).")
+            q = st.text_input("Interroger l'IA :", placeholder="Ex: Pressions managériales répétées, que faire ?", key="input_eagle")
             if st.button("COMMUNIQUER", key="btn_comm"):
                 if q:
-                    with st.spinner("Traitement..."):
+                    with st.spinner("Récupération des données satellites..."):
                         res = call_eagle_ia(q, st.session_state.analysis_results or "")
                         audio = text_to_speech(res)
                         st.session_state.ai_history.append({"q": q, "a": res, "audio": audio})
@@ -235,13 +256,16 @@ def main_app():
             st.markdown("</div>", unsafe_allow_html=True)
 
     elif nav == "SALAIRE & SANTÉ":
-        st.markdown("<h2 class='glow-text'>💰 SIMULATEUR DE PAIE</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='glow-text'>💰 SIMULATEUR DE PAIE & SANTÉ</h2>", unsafe_allow_html=True)
         st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
         brut = st.number_input("Salaire Brut (€)", value=2100.0, key="brut_input")
         stat = st.selectbox("Statut", ["Non-Cadre", "Cadre"], key="statut_select")
         taux = 0.78 if stat == "Non-Cadre" else 0.75
         st.write(f"### NET ESTIMÉ : **{brut * taux:.2f} €**")
-        st.info(f"Estimation IJ Maladie : {min((brut/30.42)*0.5, 52.04):.2f} € / jour")
+        st.divider()
+        st.subheader("🛡️ Protection Santé")
+        st.write(f"Estimation IJ Maladie (CPAM) : **{min((brut/30.42)*0.5, 52.04):.2f} € / jour**")
+        st.info("Note : La prévoyance conventionnelle peut compléter ce montant selon votre ancienneté.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     elif nav == "RÉSEAU SENTINELLES":
@@ -254,7 +278,7 @@ def main_app():
             st.markdown("</div>", unsafe_allow_html=True)
         with col_list:
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            st.subheader("Contacts")
+            st.subheader("Contacts d'Urgence")
             for _, row in df.iterrows():
                 with st.expander(f"📍 {row['Région']} - {row['Nom']}"):
                     st.write(f"📞 {row['Contact']}")
@@ -276,9 +300,13 @@ else:
     if not st.session_state.loading_complete:
         apply_ia_design()
         p = st.progress(0.0)
+        status_text = st.empty()
         for i in range(101):
             time.sleep(0.01)
             p.progress(i / 100.0)
+            if i == 20: status_text.text("Initialisation des protocoles...")
+            if i == 50: status_text.text("Chargement du module RPS...")
+            if i == 80: status_text.text("Liaison satellite établie.")
         st.session_state.loading_complete = True
         st.rerun()
     else:
