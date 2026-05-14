@@ -1,0 +1,29 @@
+{
+"project_name": "LA BUSE GENESIS",
+"version": "MASTER-DEFENSE-1.0",
+"identity": {
+"theme": "Apple Dark Gold",
+"primary_color": "#D4AF37",
+"secondary_color": "#050505",
+"border_radius": "24px",
+"font": "Inter / SF Pro"
+},
+"active_modules": [
+"DASHBOARD_SURVEILLANCE",
+"MULTI_AUDIT_CLOUD",
+"AGENT_EAGLE_IA",
+"CALCULATEUR_BRUT_NET",
+"RESEAU_SENTINELLES_GEO",
+"MASTER_NODE_IA_AUTO_OPTIMIZE",
+"ACCESSIBILITY_TTS_HOVER"
+],
+"mandatory_content": {
+"legal_mentions": "Plateforme indépendante de surveillance salariale. Expertise IA basée sur Légifrance et sources syndicales.",
+"experts_update_cycle": "Monthly",
+"news_ticker_enabled": true
+},
+"data_persistence": {
+"conventions": ["IDCC 1517", "IDCC 1486", "IDCC 3248", "IDCC 1090"],
+"regions": ["IDF", "ARA", "HDF", "PACA", "OCC"]
+}
+}
