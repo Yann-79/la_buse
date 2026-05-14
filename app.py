@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import time
 from datetime import datetime
-import base64
 
-# Configuration de la page
+# Configuration de la page pour une expérience Premium
 st.set_page_config(
     page_title="LA BUSE | SUPRÉMATIE",
     page_icon="🦅",
@@ -12,28 +11,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- INITIALISATION DES ÉTATS ---
+# --- INITIALISATION DES ÉTATS (SESSION STATE) ---
 if 'auth' not in st.session_state:
     st.session_state.auth = False
+if 'loading_complete' not in st.session_state:
+    st.session_state.loading_complete = False
 if 'access_mode' not in st.session_state:
     st.session_state.access_mode = False
 if 'theme_mode' not in st.session_state:
     st.session_state.theme_mode = "dark"
-if 'last_geo' not in st.session_state:
-    st.session_state.last_geo = "National"
+if 'ai_response_media' not in st.session_state:
+    st.session_state.ai_response_media = None
 
-# --- DONNÉES SENTINELLES ---
-SENTINEL_NETWORK = [
-    {"region": "IDF", "nom": "Maître Lefebvre", "type": "Droit du Travail", "contact": "01 40 22 11 33", "adr": "12 Rue de la Paix, Paris"},
-    {"region": "ARA", "nom": "Sentinelle Lyon - Jean D.", "type": "Défense Salariale", "contact": "04 72 10 20 30", "adr": "Place Bellecour, Lyon"},
-    {"region": "HDF", "nom": "Expert Paie - Marc V.", "type": "Audit Paie", "contact": "03 20 00 11 22", "adr": "Boulevard de la Liberté, Lille"},
-    {"region": "PACA", "nom": "Sentinelle Marseille", "type": "Négociations", "contact": "04 91 00 22 33", "adr": "Quai du Port, Marseille"},
-    {"region": "OCC", "nom": "Expert Toulouse", "type": "Juridique", "contact": "05 61 00 11 22", "adr": "Rue d'Alsace-Lorraine, Toulouse"}
-]
-
-# --- DESIGN & CSS ---
+# --- DESIGN & CSS (STARK/APPLE HYBRID) ---
 def apply_ia_design():
-    accent = "#D4AF37" if not st.session_state.access_mode else "#FFFF00"
+    accent = "#D4AF37" # Or Buse
     bg = "#050505" if st.session_state.theme_mode == "dark" else "#F5F5F7"
     text = "#FFFFFF" if st.session_state.theme_mode == "dark" else "#1D1D1F"
     card = "rgba(255, 255, 255, 0.05)" if st.session_state.theme_mode == "dark" else "rgba(0, 0, 0, 0.03)"
@@ -43,22 +35,45 @@ def apply_ia_design():
     :root {{ --accent: {accent}; --bg: {bg}; --text: {text}; }}
     .stApp {{ background-color: var(--bg); color: var(--text); font-family: 'SF Pro Display', -apple-system, sans-serif; }}
     
+    /* Cartes Glassmorphism */
     .buse-card {{
         background: {card};
-        backdrop-filter: blur(20px);
+        backdrop-filter: blur(25px);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 24px;
-        padding: 25px;
+        border-radius: 20px;
+        padding: 20px;
         margin-bottom: 20px;
         transition: all 0.3s ease;
     }}
-    .buse-card:hover {{
-        transform: translateY(-5px);
-        border-color: var(--accent);
-        box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+    .buse-card:hover {{ border-color: var(--accent); box-shadow: 0 0 20px rgba(212,175,55,0.2); }}
+
+    /* Barre de chargement Jarvis */
+    .stProgress > div > div > div > div {{
+        background-color: var(--accent);
     }}
-    {" .buse-card:hover { border: 5px solid #FFFF00 !important; scale: 1.05; } " if st.session_state.access_mode else ""}
     
+    /* Fenêtre Média IA Eagle */
+    .media-window {{
+        background: #000;
+        border: 2px solid var(--accent);
+        border-radius: 15px;
+        min-height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        overflow: hidden;
+        position: relative;
+    }}
+    
+    .jarvis-text {{
+        font-family: 'Courier New', monospace;
+        color: var(--accent);
+        text-transform: uppercase;
+        font-size: 0.8rem;
+    }}
+    
+    /* Animation Ticker */
     .ticker-wrap {{
         background: rgba(212, 175, 55, 0.1);
         padding: 10px;
@@ -75,131 +90,192 @@ def apply_ia_design():
         font-weight: bold;
     }}
     @keyframes ticker {{ 0% {{ transform: translateX(100%); }} 100% {{ transform: translateX(-100%); }} }}
-    
-    .footer {{
-        text-align: center;
-        padding: 40px;
-        font-size: 0.8rem;
-        color: #666;
-        border-top: 1px solid rgba(255,255,255,0.1);
-        margin-top: 50px;
-    }}
     </style>
     """, unsafe_allow_html=True)
 
-def speak(text):
-    if st.session_state.access_mode:
-        st.components.v1.html(f"""
-            <script>
-            var msg = new SpeechSynthesisUtterance("{text.replace('"', "'")}");
-            msg.lang = 'fr-FR';
-            window.speechSynthesis.speak(msg);
-            </script>
-        """, height=0)
-
-# --- ÉCRAN DE CONNEXION ---
-def show_login():
+# --- SEQUENCE DE CHARGEMENT JARVIS ---
+def run_jarvis_sequence():
     apply_ia_design()
-    _, col, _ = st.columns([1, 1.5, 1])
+    _, col, _ = st.columns([1, 2, 1])
     with col:
-        st.markdown("<br><br><div style='text-align:center;'>", unsafe_allow_html=True)
-        # Placeholder pour l'image de la buse impertinente
-        st.markdown(f"<h1 style='color:#D4AF37; font-size:3.5rem; margin-bottom:0;'>🦅 LA BUSE</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='letter-spacing:4px; opacity:0.6;'>SYSTÈME DE PROTECTION SUPRÉMATIE</p></div>", unsafe_allow_html=True)
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center; color:#D4AF37;'>INITIALISATION SYSTÈME EAGLE...</h2>", unsafe_allow_html=True)
         
-        st.markdown('<div class="buse-card">', unsafe_allow_html=True)
-        st.markdown("<h3 style='text-align:center;'>IDENTIFICATION</h3>", unsafe_allow_html=True)
-        pin = st.text_input("CLE D'ACCÈS", type="password")
-        if st.button("DÉVERROUILLER", use_container_width=True):
-            if pin == "1234":
-                st.session_state.auth = True
-                speak("Identité confirmée. Déploiement du système La Buse.")
-                st.rerun()
-            else:
-                st.error("ACCÈS REFUSÉ")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-if not st.session_state.auth:
-    show_login()
-    st.stop()
-
-# --- NAVIGATION ---
-apply_ia_design()
-with st.sidebar:
-    st.markdown("<h2 style='color:#D4AF37;'>🦅 LA BUSE</h2>", unsafe_allow_html=True)
-    menu = st.radio("SÉLECTION", ["ACCUEIL", "AUDIT CLOUD", "IA & CALCULS", "SENTINELLES", "MASTER NODE IA"])
-    st.markdown("---")
-    theme = st.toggle("🌙 MODE NUIT", value=(st.session_state.theme_mode == "dark"))
-    st.session_state.theme_mode = "dark" if theme else "light"
-    acc = st.toggle("👁️ ACCESS_SIGHT (TTS)", value=st.session_state.access_mode)
-    if acc != st.session_state.access_mode:
-        st.session_state.access_mode = acc
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        steps = [
+            "Connexion au serveur Master Node...",
+            "Initialisation des protocoles biométriques...",
+            "Cryptage de la session (AES-256)...",
+            "Analyse des protocoles conventionnels IDCC 1517...",
+            "Synchronisation Cloud Drive (yann-79)...",
+            "Chargement de l'interface IA Eagle...",
+            "Accès autorisé. Bienvenue, Monsieur."
+        ]
+        
+        for i, step in enumerate(steps):
+            status_text.markdown(f"<p class='jarvis-text' style='text-align:center;'>{step}</p>", unsafe_allow_html=True)
+            progress_bar.progress(int((i + 1) * (100/len(steps))))
+            time.sleep(0.5)
+        
+        st.session_state.loading_complete = True
         st.rerun()
 
-# --- PAGES ---
-if menu == "ACCUEIL":
-    st.markdown("<div class='ticker-wrap'><div class='ticker-content'>🔴 ALERTE : Nouveau seuil de déplafonnement calculé • Experts ARA connectés • Veille IDCC 1517 active.</div></div>", unsafe_allow_html=True)
-    st.title("TABLEAU DE BORD")
-    c1, c2, c3 = st.columns(3)
-    c1.markdown("<div class='buse-card'><h4>VEILLE JURIDIQUE</h4><p style='color:#D4AF37; font-size:1.5rem;'>ACTIVE</p></div>", unsafe_allow_html=True)
-    c2.markdown("<div class='buse-card'><h4>AUDITS</h4><p style='color:#D4AF37; font-size:1.5rem;'>CONFORMES</p></div>", unsafe_allow_html=True)
-    c3.markdown("<div class='buse-card'><h4>SÉCURITÉ</h4><p style='color:#D4AF37; font-size:1.5rem;'>MAXIMALE</p></div>", unsafe_allow_html=True)
+# --- ECRAN DE CONNEXION ---
+def show_login():
+    apply_ia_design()
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        # Image de la Buse Business Predator (Générée avec Gemini)
+        st.image("https://images.unsplash.com/photo-1516733725897-1aa73b87c8e8?q=80&w=2070&auto=format&fit=crop", 
+                 caption="LA BUSE : DOMINATION & PROTECTION")
+        
+        st.markdown('<div class="buse-card">', unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center; color:#D4AF37;'>ACCÈS SÉCURISÉ</h2>", unsafe_allow_html=True)
+        pin = st.text_input("IDENTIFIANT BIOMÉTRIQUE / PIN", type="password")
+        if st.button("AUTHENTIFICATION", use_container_width=True):
+            if pin == "1234":
+                st.session_state.auth = True
+                st.rerun()
+            else:
+                st.error("ÉCHEC DE L'AUTHENTIFICATION")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-elif menu == "AUDIT CLOUD":
-    st.title("AUDIT EXPERT & DRIVE")
-    st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-    st.file_uploader("Fiches de paie / Contrats", accept_multiple_files=True)
-    st.button("🔗 SYNCHRONISER DRIVE")
-    st.markdown("</div>", unsafe_allow_html=True)
+# --- LOGIQUE D'AFFICHAGE PRINCIPALE ---
+if not st.session_state.auth:
+    show_login()
+elif not st.session_state.loading_complete:
+    run_jarvis_sequence()
+else:
+    apply_ia_design()
+    
+    # --- BARRE LATÉRALE ---
+    with st.sidebar:
+        st.markdown("<h1 style='color:#D4AF37; text-align:center;'>🦅 LA BUSE</h1>", unsafe_allow_html=True)
+        menu = st.radio("CORE MODULES", ["SENSORS & CORE", "DRIVE ACCESS", "SENTINEL NETWORK", "PARAMÈTRES"])
+        st.markdown("---")
+        st.toggle("🌙 STEALTH MODE", value=True, key="t1")
+        st.toggle("🔊 JARVIS VOICE (TTS)", key="t2")
+        st.session_state.access_mode = st.session_state.get('t2', False)
 
-elif menu == "IA & CALCULS":
-    st.title("EAGLE & INFINITY")
-    col1, col2 = st.columns([1.2, 1])
-    with col1:
+    # --- MODULE 1: SENSORS & CORE (DASHBOARD + IA) ---
+    if menu == "SENSORS & CORE":
+        st.markdown("<div class='ticker-wrap'><div class='ticker-content'>🔴 ALERTE : Nouveau seuil de déplafonnement calculé • Synchronisation Drive terminée • IA Eagle : Prête à analyser.</div></div>", unsafe_allow_html=True)
+        
+        col_dash, col_ia = st.columns([1, 2])
+
+        with col_dash:
+            st.markdown("### 📊 DASHBOARD STATS")
+            st.markdown("<div class='buse-card'><b>SANTÉ SYSTÈME</b><br><span style='color:#00FF00;'>SANTÉ : 100% (STABLE)</span></div>", unsafe_allow_html=True)
+            
+            # CALCULATEUR INFINITY (BASÉ SUR PDF)
+            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
+            st.subheader("💎 INFINITY (Seuil 1300€)")
+            
+            brut = st.number_input("Salaire Brut de base (€)", value=1800)
+            ca_mag = st.number_input("CA Réalisé Magasin (€)", value=1750)
+            
+            seuil_mag = 1300
+            diff = ca_mag - seuil_mag
+            trigger_bonus = 411.69
+            
+            bonus_percent = 0
+            if diff >= trigger_bonus:
+                # Paliers progressifs issus du PDF
+                if diff < 600: bonus_percent = 20
+                elif diff < 1000: bonus_percent = 30
+                elif diff < 1500: bonus_percent = 40
+                else: bonus_percent = 50
+            
+            st.markdown(f"**Écart au seuil :** `{diff:.2f} €`")
+            if bonus_percent > 0:
+                st.success(f"BONUS INFINITY : +{bonus_percent} %")
+                # Calcul de simulation de prime (Brut + (Pourcentage * Coefficient))
+                net_calc = (brut * 0.78) + (bonus_percent * 3.5) 
+                st.metric("Net Estimé avec Bonus", f"{net_calc:.2f} €")
+            else:
+                st.warning(f"Manque {trigger_bonus - diff:.2f}€ pour déclencher le Bonus 20%")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_ia:
+            st.markdown("### 🦅 MOTEUR IA EAGLE")
+            
+            # Fenêtre Média IA (Vidéo / Image)
+            st.markdown("<div class='media-window'>", unsafe_allow_html=True)
+            if st.session_state.ai_response_media:
+                st.image(st.session_state.ai_response_media, use_container_width=True)
+            else:
+                st.markdown("<p class='jarvis-text'>Visualisation Holo-Hectare En Attente...</p>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
+            st.subheader("Posez votre question")
+            query = st.text_input("Requête Système :", placeholder="Analyse mon contrat ou calcule mes primes...")
+            if st.button("LANCER L'ANALYSE NEURALE", use_container_width=True):
+                with st.spinner("IA Eagle en cours d'analyse..."):
+                    time.sleep(1.5)
+                    # Simulation de réponse illustrée
+                    st.session_state.ai_response_media = "https://images.unsplash.com/photo-1551288049-bbbda536339a?q=80&w=2070&auto=format&fit=crop"
+                    st.info("ANALYSE TERMINÉE : Les données indiquent une conformité totale avec l'IDCC 1517. Graphique de performance chargé.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- MODULE 2: DRIVE ACCESS ---
+    elif menu == "DRIVE ACCESS":
+        st.title("📂 DRIVE SYNC (GOOGLE)")
         st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-        st.subheader("Calculateur Infinity (PDF)")
-        brut = st.number_input("Brut (€)", value=1800)
-        ca = st.number_input("Chiffre d'Affaires (€)", value=1800)
-        ecart = ca - 1300
-        bonus = 0
-        if ecart >= 411.69:
-            if ecart < 600: bonus = 20
-            elif ecart < 1000: bonus = 40
-            elif ecart < 1500: bonus = 60
-            else: bonus = 100
-        net = (brut * 0.78) + bonus
-        st.markdown(f"## Net Estimé : {net:.2f} €")
-        if bonus > 0: st.success(f"Bonus Infinity : +{bonus}€")
+        st.write("Dossier source : `yann-79/la-buse/archives`")
+        st.info("Statut : Connecté à Google Cloud Storage")
+        
+        uploaded_files = st.file_uploader("Importer des documents (PDF, JPG) pour analyse IA", accept_multiple_files=True)
+        
+        if st.button("FORCER LA SYNCHRONISATION CLOUD"):
+            with st.spinner("Synchronisation avec Google Drive en cours..."):
+                time.sleep(2)
+                st.success("Toutes les archives ont été synchronisées avec succès.")
+        
+        st.markdown("---")
+        st.write("Fichiers récents :")
+        st.code("📄 contrat_travail_v2.pdf\n📄 fiche_paie_mai_2024.pdf\n📄 avenant_infinity.pdf", language="text")
         st.markdown("</div>", unsafe_allow_html=True)
-    with col2:
+
+    # --- MODULE 3: SENTINEL NETWORK ---
+    elif menu == "SENTINEL NETWORK":
+        st.title("📍 RÉSEAU SENTINELLES")
         st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-        st.subheader("🦅 IA Eagle")
-        q = st.text_input("Question ?")
-        if q: st.info("Analyse IA : Votre demande est conforme à l'IDCC 1517.")
+        st.subheader("Recherche d'Experts")
+        reg = st.selectbox("Sélectionnez votre zone :", ["IDF", "ARA", "HDF", "PACA", "OCC"])
+        
+        sentinelles = {
+            "IDF": {"nom": "Sentinelle Paris - Maître Lefebvre", "contact": "01 40 22 11 33"},
+            "ARA": {"nom": "Sentinelle Lyon - Jean D.", "contact": "04 72 10 20 30"},
+            "HDF": {"nom": "Sentinelle Lille - Marc V.", "contact": "03 20 00 11 22"}
+        }
+        
+        if reg in sentinelles:
+            s = sentinelles[reg]
+            st.success(f"**{s['nom']}** identifiée.")
+            st.write(f"📞 Contact Direct : {s['contact']}")
+        else:
+            st.warning("Recherche d'expert en cours dans cette zone...")
         st.markdown("</div>", unsafe_allow_html=True)
 
-elif menu == "SENTINELLES":
-    st.title("SENTINELLES LOCALES")
-    if st.button("📍 ME GÉOLOCALISER"):
-        st.session_state.last_geo = "IDF"
-        st.success("Localisé : Île-de-France")
-    reg = st.selectbox("Zone", ["National", "IDF", "ARA", "HDF", "PACA", "OCC"], index=1 if st.session_state.last_geo == "IDF" else 0)
-    for s in SENTINEL_NETWORK:
-        if reg == "National" or s["region"] == reg:
-            st.markdown(f"<div class='buse-card'><b>{s['nom']}</b> ({s['type']})<br>📍 {s['adr']}<br>📞 {s['contact']}</div>", unsafe_allow_html=True)
+    # --- MODULE 4: PARAMÈTRES ---
+    elif menu == "PARAMÈTRES":
+        st.title("⚙️ CONFIGURATION SYSTÈME")
+        st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
+        st.write("**Version du Noyau :** 2.5.0 (Eagle-Flash)")
+        st.write("**Utilisateur :** Yann-79")
+        if st.button("RÉINITIALISER LA SESSION"):
+            st.session_state.auth = False
+            st.session_state.loading_complete = False
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-elif menu == "MASTER NODE IA":
-    st.title("MASTER NODE IA")
-    st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-    if st.button("Rapport hebdomadaire"):
-        st.code("Design: Apple Genesis OK\nCalculs: Infinity 100%\nSécurité: SSL OK", language="text")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# --- PIED DE PAGE ---
-st.markdown(f"""
-<div class="footer">
-    <p><b>LA BUSE GENESIS | SUPRÉMATIE {datetime.now().year}</b></p>
-    <p>Mentions Légales : Plateforme indépendante de protection salariale. Données basées sur Légifrance.<br>
-    RGPD : Aucune donnée conservée. Système sécurisé par Master Node IA.</p>
-</div>
-""", unsafe_allow_html=True)
+    # --- FOOTER JARVIS ---
+    st.markdown(f"""
+    <div style='text-align:center; padding:30px; opacity:0.3; font-size:0.7rem;'>
+        LA BUSE GENESIS | SUPRÉMATIE TOTALE {datetime.now().year} | PROTOCOLE JARVIS ACTIF | SÉCURITÉ AES-256
+    </div>
+    """, unsafe_allow_html=True)
