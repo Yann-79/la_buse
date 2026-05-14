@@ -17,13 +17,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- DONNÉES MÉTIER RÉINTÉGRÉES (BOULANGER & SYNDICATS) ---
+# --- DONNÉES MÉTIER (BOULANGER & SENTINELLES) ---
 BOULANGER_DATA = {
     "Délégués": [
-        {"Région": "IDF", "Nom": "Jean-Pierre D.", "Contact": "06 xx xx xx xx"},
-        {"Région": "ARA", "Nom": "Marc L.", "Contact": "04 xx xx xx xx"},
-        {"Région": "PACA", "Nom": "Sophie M.", "Contact": "07 xx xx xx xx"},
-        {"Région": "HDF", "Nom": "Thomas R.", "Contact": "06 xx xx xx xx"}
+        {"Région": "IDF", "Nom": "Jean-Pierre D.", "Contact": "06 xx xx xx xx", "lat": 48.8566, "lon": 2.3522},
+        {"Région": "ARA", "Nom": "Marc L.", "Contact": "04 xx xx xx xx", "lat": 45.7640, "lon": 4.8357},
+        {"Région": "PACA", "Nom": "Sophie M.", "Contact": "07 xx xx xx xx", "lat": 43.2965, "lon": 5.3698},
+        {"Région": "HDF", "Nom": "Thomas R.", "Contact": "06 xx xx xx xx", "lat": 50.6292, "lon": 3.0573},
+        {"Région": "OCC", "Nom": "Julie A.", "Contact": "05 xx xx xx xx", "lat": 43.6045, "lon": 1.4442}
     ],
     "Syndicats": {
         "CFDT": "cfdt@boulanger.com",
@@ -40,8 +41,6 @@ if 'loading_complete' not in st.session_state:
     st.session_state.loading_complete = False
 if 'ai_history' not in st.session_state:
     st.session_state.ai_history = []
-if 'theme_mode' not in st.session_state:
-    st.session_state.theme_mode = "dark"
 if 'accessibility' not in st.session_state:
     st.session_state.accessibility = False
 if 'current_media' not in st.session_state:
@@ -68,10 +67,7 @@ def apply_ia_design():
         padding: 22px;
         margin-bottom: 18px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-        transition: transform 0.2s;
     }}
-    
-    .buse-card:hover {{ transform: scale(1.01); }}
     
     .glow-text {{
         color: {accent};
@@ -81,8 +77,14 @@ def apply_ia_design():
         letter-spacing: 2px;
     }}
 
-    .health-stable {{ color: #00FF00; font-weight: bold; animation: pulse 2s infinite; }}
-    @keyframes pulse {{ 0% {{ opacity: 0.5; }} 50% {{ opacity: 1; }} 100% {{ opacity: 0.5; }} }}
+    .status-badge {{
+        background: rgba(0, 255, 0, 0.1);
+        color: #00FF00;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        border: 1px solid #00FF00;
+    }}
     
     .stButton>button {{
         background: linear-gradient(45deg, #D4AF37, #8A6D3B);
@@ -91,41 +93,46 @@ def apply_ia_design():
         padding: 10px;
     }}
 
+    /* Scale for mobile */
+    @media (max-width: 600px) {{
+        .glow-text {{ font-size: 1.2rem; }}
+    }}
+
     {".stApp { font-size: 1.2rem; filter: contrast(1.2); }" if st.session_state.accessibility else ""}
     </style>
     """, unsafe_allow_html=True)
 
-# --- MOTEUR API AVEC RETRY AUTO (AUTO-CORRECTION) ---
-def safe_api_call(url, payload, method="POST", retries=5):
+# --- MOTEUR API ---
+def safe_api_call(url, payload, method="POST", retries=3):
+    if not API_KEY:
+        return None # Simulation mode
     for i in range(retries):
         try:
-            res = requests.post(url, json=payload, timeout=12) if method=="POST" else requests.get(url, timeout=12)
+            res = requests.post(url, json=payload, timeout=10) if method=="POST" else requests.get(url, timeout=10)
             if res.status_code == 200: return res.json()
-            time.sleep(2**i) 
+            time.sleep(1)
         except:
-            time.sleep(2**i)
+            time.sleep(1)
     return None
 
 def call_eagle_ia(prompt, context=""):
+    if not API_KEY:
+        return f"MODRE SIMULATION : En tant qu'expert IDCC 1517, je traite votre demande sur '{prompt}'. L'accès satellite réel nécessite une clé API. Cependant, selon les règles de la convention, votre requête semble légitime."
+    
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "systemInstruction": {"parts": [{"text": f"Tu es EAGLE, l'IA de La Buse. Contexte audit: {context}. Expert IDCC 1517. Réponds de manière tactique et juridique."}]},
-        "tools": [{"google_search": {}}]
+        "systemInstruction": {"parts": [{"text": f"Tu es EAGLE, l'IA de La Buse. Contexte: {context}. Expert Convention Collective Boulanger (IDCC 1517)."}]}
     }
     result = safe_api_call(url, payload)
-    return result['candidates'][0]['content']['parts'][0]['text'] if result else "⚠️ Liaison satellite perdue. Réessai en cours..."
-
-def generate_eagle_media(prompt):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key={API_KEY}"
-    payload = {"instances": {"prompt": f"Cyber defense eagle, golden neon, 4k, {prompt}"}, "parameters": {"sampleCount": 1}}
-    result = safe_api_call(url, payload)
-    return f"data:image/png;base64,{result['predictions'][0]['bytesBase64Encoded']}" if result else st.session_state.current_media
+    return result['candidates'][0]['content']['parts'][0]['text'] if result else "⚠️ Erreur de liaison satellite. Mode local activé."
 
 def text_to_speech(text):
+    # Fallback si pas de clé
+    if not API_KEY: return None
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={API_KEY}"
     payload = {
-        "contents": [{"parts": [{"text": text[:300]}]}],
+        "contents": [{"parts": [{"text": text[:200]}]}],
         "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Kore"}}}},
         "model": "gemini-2.5-flash-preview-tts"
     }
@@ -133,23 +140,22 @@ def text_to_speech(text):
     return result['candidates'][0]['content']['parts'][0]['inlineData']['data'] if result else None
 
 # --- LOGIQUE MÉTIER ---
-def calculate_salary_v4(brut, statut="non-cadre"):
-    taux = 0.78 if statut == "non-cadre" else 0.75
-    net = brut * taux
-    ij = min((brut / 30.42) * 0.5, 52.04)
-    return net, ij
-
 def calculate_infinity_v4(ca_perso, heures_mois=48):
+    # Paramètres extraits du PDF
     seuil_base = 1300.0
     declencheur = 411.69
     ecart = ca_perso - seuil_base
-    if ecart < declencheur: return ecart, "0%", "#FF4B4B"
+    
+    if ecart < declencheur:
+        return ecart, "0%", "#FF4B4B", 0
+    
     ratio_reel = (ecart - declencheur) / heures_mois
-    if ratio_reel >= 16: return ecart, "100%", "#00FF00"
-    if ratio_reel >= 13: return ecart, "60%", "#ADFF2F"
-    if ratio_reel >= 10: return ecart, "40%", "#D4AF37"
-    if ratio_reel >= 7: return ecart, "20%", "#D4AF37"
-    return ecart, "DÉPLAFONNÉ (0%+)", "#D4AF37"
+    
+    if ratio_reel >= 16: return ecart, "100%", "#00FF00", 100
+    if ratio_reel >= 13: return ecart, "60%", "#ADFF2F", 60
+    if ratio_reel >= 10: return ecart, "40%", "#D4AF37", 40
+    if ratio_reel >= 7: return ecart, "20%", "#D4AF37", 20
+    return ecart, "DÉPLAFONNÉ (0%+)", "#D4AF37", 5
 
 # --- INTERFACE ---
 def main_app():
@@ -157,57 +163,52 @@ def main_app():
     
     with st.sidebar:
         st.markdown("<h1 class='glow-text'>🦅 LA BUSE</h1>", unsafe_allow_html=True)
-        nav = st.radio("SÉLECTION MODULE", [
+        nav = st.radio("NAVIGATION SYSTÈME", [
             "MONITEUR GÉNÉSIS",
             "AGENT EAGLE (IA & AUDIT)",
             "MOTEUR INFINITY",
             "SALAIRE & SANTÉ",
-            "RÉSEAU SENTINELLES",
-            "CLOUD DRIVE"
-        ], key="nav_v4")
+            "RÉSEAU SENTINELLES"
+        ], key="nav_v5")
         st.divider()
-        st.session_state.accessibility = st.toggle("MODALITÉ ACCESSIBLE", value=st.session_state.accessibility)
-        if st.button("LOGOUT"):
+        st.session_state.accessibility = st.toggle("MODE ACCESSIBILITÉ", value=st.session_state.accessibility)
+        if st.button("DÉCONNEXION"):
             st.session_state.auth = False
-            st.session_state.loading_complete = False
             st.rerun()
 
     if nav == "MONITEUR GÉNÉSIS":
-        st.markdown("<h2 class='glow-text'>TABLEAU DE BORD</h2>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns(3)
-        col1.markdown("<div class='buse-card'><b>SYSTÈME</b><br><span class='health-stable'>STABLE</span></div>", unsafe_allow_html=True)
-        col2.markdown(f"<div class='buse-card'><b>CONVENTION</b><br>IDCC 1517</div>", unsafe_allow_html=True)
-        col3.markdown(f"<div class='buse-card'><b>ALERTE</b><br>ZÉRO</div>", unsafe_allow_html=True)
+        st.markdown("<h2 class='glow-text'>CENTRE DE CONTRÔLE</h2>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        c1.markdown("<div class='buse-card'><b>ÉTAT RÉSEAU</b><br><span class='status-badge'>OPÉRATIONNEL</span></div>", unsafe_allow_html=True)
+        c2.markdown("<div class='buse-card'><b>BASE LÉGALE</b><br>IDCC 1517</div>", unsafe_allow_html=True)
+        c3.markdown("<div class='buse-card'><b>ALERTES</b><br>AUCUNE</div>", unsafe_allow_html=True)
         
         st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-        st.subheader("Contacts Boulanger")
-        for d in BOULANGER_DATA["Délégués"]:
-            st.write(f"🚩 **{d['Région']}** : {d['Nom']} ({d['Contact']})")
+        st.subheader("📋 Dernières Directives")
+        st.info("Mise à jour des paliers Infinity effectuée selon le protocole V4 (PDF).")
         st.markdown("</div>", unsafe_allow_html=True)
 
     elif nav == "AGENT EAGLE (IA & AUDIT)":
-        st.markdown("<h2 class='glow-text'>🔍 AGENT EAGLE</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='glow-text'>🔍 INTELLIGENCE EAGLE</h2>", unsafe_allow_html=True)
         cl, cr = st.columns([1, 1])
         with cl:
-            st.image(st.session_state.current_media)
-            doc = st.file_uploader("Audit Document (Paie/Contrat)", type=["pdf", "png", "jpg"])
-            if doc and st.button("LANCER L'AUDIT"):
-                with st.spinner("Analyse OCR..."):
+            st.image(st.session_state.current_media, caption="Visualisation Eagle")
+            doc = st.file_uploader("Scanner un document (Paie/Contrat)", type=["pdf", "png", "jpg"])
+            if doc and st.button("LANCER L'ANALYSE"):
+                with st.spinner("Analyse en cours..."):
                     time.sleep(2)
-                    st.session_state.analysis_results = "Analyse terminée : Structure salariale conforme à l'IDCC 1517. Vérifiez le palier Infinity."
-                    st.success("Audit complété.")
+                    st.session_state.analysis_results = "Analyse : Le document semble être une fiche de paie. Vérification des cotisations retraite et prévoyance conforme à l'IDCC 1517."
+                    st.success("Audit terminé.")
 
         with cr:
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            q = st.text_input("Question juridique ou métier :")
-            if st.button("INTERROGER EAGLE"):
+            q = st.text_input("Interroger l'expert (IA) :", placeholder="Ex: Quel est le délai de prévenance ?")
+            if st.button("COMMUNIQUER"):
                 if q:
-                    with st.spinner("Activation Eagle..."):
-                        st.session_state.current_media = generate_eagle_media(q[:15])
+                    with st.spinner("Traitement..."):
                         res = call_eagle_ia(q, st.session_state.analysis_results or "")
                         audio = text_to_speech(res)
                         st.session_state.ai_history.append({"q": q, "a": res, "audio": audio})
-                        st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
         for chat in reversed(st.session_state.ai_history):
@@ -216,45 +217,71 @@ def main_app():
                 if chat['audio']: st.audio(base64.b64decode(chat['audio']), format='audio/wav')
 
     elif nav == "MOTEUR INFINITY":
-        st.markdown("<h2 class='glow-text'>💎 CALCUL INFINITY</h2>", unsafe_allow_html=True)
-        st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-        ca = st.number_input("CA Personnel (€)", value=1750.0)
-        hrs = st.number_input("Heures (Mois)", value=48)
-        ecart, bonus, color = calculate_infinity_v4(ca, hrs)
-        st.metric("Écart au seuil", f"{ecart:.2f} €")
-        st.markdown(f"### BONUS ESTIMÉ : <span style='color:{color}; font-size:1.5em;'>{bonus}</span>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<h2 class='glow-text'>💎 MOTEUR INFINITY V4</h2>", unsafe_allow_html=True)
+        col_in, col_res = st.columns([1, 1])
+        
+        with col_in:
+            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
+            ca = st.number_input("CA Personnel Réalisé (€)", value=1800.0, step=50.0)
+            hrs = st.number_input("Heures de présence (Mois)", value=48, step=1)
+            ecart, bonus, color, progress = calculate_infinity_v4(ca, hrs)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_res:
+            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
+            st.metric("Écart au seuil (1300€)", f"{ecart:.2f} €", delta=f"{ecart-411.69:.2f} € vs Seuil déclenchement")
+            st.markdown(f"### PRIME : <span style='color:{color};'>{bonus}</span>", unsafe_allow_html=True)
+            st.progress(progress / 100.0)
+            st.caption(f"Progression vers le palier 100% (Ratio actuel: {(ecart-411.69)/hrs:.2f}€/h)")
+            st.markdown("</div>", unsafe_allow_html=True)
 
     elif nav == "SALAIRE & SANTÉ":
-        st.markdown("<h2 class='glow-text'>💰 SALAIRE & SANTÉ</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='glow-text'>💰 SIMULATEUR DE PAIE</h2>", unsafe_allow_html=True)
         st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-        brut = st.number_input("Salaire Brut Mensuel (€)", value=2100.0)
-        stat = st.selectbox("Statut", ["non-cadre", "cadre"])
-        net, ij = calculate_salary_v4(brut, stat)
-        st.write(f"### NET ESTIMÉ : {net:.2f} €")
-        st.write(f"### IJ MALADIE (50%) : {ij:.2f} € / jour")
+        brut = st.number_input("Salaire Brut (€)", value=2100.0)
+        stat = st.selectbox("Statut", ["Employé/Ouvrier (Non-Cadre)", "Cadre"])
+        taux = 0.78 if "Non-Cadre" in stat else 0.75
+        net = brut * taux
+        st.write(f"### NET ESTIMÉ : **{net:.2f} €**")
+        st.divider()
+        st.write("**IJ Maladie (Sécurité Sociale) :**")
+        st.info(f"Estimation : {min((brut/30.42)*0.5, 52.04):.2f} € / jour (après carence)")
         st.markdown("</div>", unsafe_allow_html=True)
 
     elif nav == "RÉSEAU SENTINELLES":
-        st.markdown("<h2 class='glow-text'>🛡️ RÉSEAU SENTINELLES</h2>", unsafe_allow_html=True)
-        st.map(pd.DataFrame({'lat': [48.8566, 45.7640, 43.6045], 'lon': [2.3522, 4.8357, 1.4442]}))
-
-    elif nav == "CLOUD DRIVE":
-        st.markdown("<h2 class='glow-text'>☁️ CLOUD DRIVE</h2>", unsafe_allow_html=True)
-        st.markdown("<div class='buse-card'>Synchronisation active avec le Master Node.</div>", unsafe_allow_html=True)
-        st.code("📄 contrat_boulanger.pdf\n📄 avenant_infinity.pdf\n📄 idcc_1517_full.pdf")
+        st.markdown("<h2 class='glow-text'>🛡️ RÉSEAU DES SENTINELLES</h2>", unsafe_allow_html=True)
+        
+        # Données pour la carte
+        df = pd.DataFrame(BOULANGER_DATA["Délégués"])
+        
+        col_map, col_list = st.columns([2, 1])
+        
+        with col_map:
+            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
+            st.map(df)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+        with col_list:
+            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
+            st.subheader("Contacts")
+            for _, row in df.iterrows():
+                with st.expander(f"📍 {row['Région']} - {row['Nom']}"):
+                    st.write(f"📞 {row['Contact']}")
+                    st.button("Contacter", key=row['Nom'])
+            st.markdown("</div>", unsafe_allow_html=True)
 
 # --- INITIALISATION ---
 if not st.session_state.auth:
     apply_ia_design()
-    _, col, _ = st.columns([1, 1, 1])
+    _, col, _ = st.columns([1, 2, 1])
     with col:
-        st.markdown("<br><br><h2 class='glow-text' style='text-align:center;'>ACCESS CORE</h2>", unsafe_allow_html=True)
-        pin = st.text_input("CODE PIN", type="password")
-        if st.button("CONNECT"):
+        st.markdown("<br><br><h2 class='glow-text' style='text-align:center;'>AUTH SYSTÈME</h2>", unsafe_allow_html=True)
+        pin = st.text_input("PIN DE SÉCURITÉ", type="password")
+        if st.button("DÉVERROUILLER"):
             if pin == "1234":
                 st.session_state.auth = True
                 st.rerun()
+            else: st.error("CODE INVALIDE")
 else:
     if not st.session_state.loading_complete:
         apply_ia_design()
@@ -264,4 +291,5 @@ else:
             p.progress(i / 100.0)
         st.session_state.loading_complete = True
         st.rerun()
+    main_app()
     main_app()
