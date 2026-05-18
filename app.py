@@ -12,7 +12,7 @@ from datetime import datetime
 # # Application Structure Plan: 
 # # La structure de l'application est calquée fidèlement sur la Photo 2.
 # # Elle comprend :
-# # 1. Une barre latérale gauche pour naviguer de manière stable.
+# # 1. Une barre latérale gauche pour naviguer de manière stable (sans l'onglet Convention Collective).
 # # 2. Un panneau central large pour le flux principal (carrousel, recherche, dalles d'actions).
 # # 3. Un panneau droit pour les outils rapides et le paramétrage interactif de l'accessibilité.
 # # Cette architecture asymétrique garantit une lisibilité maximale et évite toute interférence de rendu DOM.
@@ -117,8 +117,8 @@ CAROUSEL_ITEMS = [
         "badge": "Primes & Salaires"
     },
     {
-        "titre": "⚖️ Convention Collective IDCC 1517",
-        "description": "Salariés des Boulangeries-Pâtisseries : bénéficiez de grilles de salaires garanties, de majorations pour heures de nuit et de garanties de prévoyance spécifiques.",
+        "titre": "⚖️ Droits & Prévoyance du Salarié",
+        "description": "Bénéficiez de grilles de salaires garanties, de majorations pour heures de nuit et de garanties de prévoyance spécifiques selon vos accords.",
         "badge": "Vos Droits"
     }
 ]
@@ -154,114 +154,113 @@ def apply_ui_design_and_hover_tts():
 
     # Injection robuste et sécurisée via gestion d'erreur d'image (Bypasse le bac à sable de Streamlit / CORS)
     # L'utilisation de guillemets simples à l'extérieur et doubles à l'intérieur évite toute cassure de l'attribut HTML.
-    audio_hover_js = ""
-    if st.session_state.get('audio_on_hover', True):
-        audio_hover_js = """
-        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror='(function() {
-            let synth = null;
+    # Les commentaires et apostrophes libres ont été retirés pour exclure tout bug syntaxique.
+    audio_hover_js = r"""
+    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror='(function() {
+        let synth = null;
+        try {
+            synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
+        } catch(e) {
+            synth = window.speechSynthesis;
+        }
+
+        if (!synth) {
+            console.warn("SpeechSynthesis non supporte sur ce navigateur.");
+            return;
+        }
+
+        let lastText = "";
+        let timer = null;
+        let isUnlocked = false;
+
+        function unlockSpeech() {
+            if (isUnlocked) return;
             try {
-                synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
+                const u = new SpeechSynthesisUtterance("");
+                u.volume = 0;
+                synth.speak(u);
+                isUnlocked = true;
+                console.log("Moteur audio d accessibilite degenere...");
             } catch(e) {
-                synth = window.speechSynthesis;
+                console.error("Erreur de deverrouillage de la synthese vocale:", e);
             }
+        }
 
-            if (!synth) {
-                console.warn("SpeechSynthesis non supporte sur ce navigateur.");
-                return;
+        document.addEventListener("click", unlockSpeech, { once: true });
+        document.addEventListener("touchstart", unlockSpeech, { once: true });
+        try {
+            if (window.parent && window.parent.document) {
+                window.parent.document.addEventListener("click", unlockSpeech, { once: true });
+                window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
             }
+        } catch(e) {}
 
-            let lastText = "";
-            let timer = null;
-            let isUnlocked = false;
-
-            function unlockSpeech() {
-                if (isUnlocked) return;
-                try {
-                    const u = new SpeechSynthesisUtterance("");
-                    u.volume = 0;
-                    synth.speak(u);
-                    isUnlocked = true;
-                    console.log("Moteur audio d accessibilite degenere...");
-                } catch(e) {
-                    console.error("Erreur de deverrouillage de la synthese vocale:", e);
-                }
-            }
-
-            document.addEventListener("click", unlockSpeech, { once: true });
-            document.addEventListener("touchstart", unlockSpeech, { once: true });
+        function ttsSpeak(text) {
+            if (!text || text === lastText) return;
             try {
-                if (window.parent && window.parent.document) {
-                    window.parent.document.addEventListener("click", unlockSpeech, { once: true });
-                    window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
-                }
-            } catch(e) {}
+                synth.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = "fr-FR";
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
 
-            function ttsSpeak(text) {
-                if (!text || text === lastText) return;
-                try {
-                    synth.cancel();
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = "fr-FR";
-                    utterance.rate = 1.0;
-                    utterance.pitch = 1.0;
+                if (!isUnlocked) unlockSpeech();
 
-                    if (!isUnlocked) unlockSpeech();
-
-                    synth.speak(utterance);
-                    lastText = text;
-                } catch (err) {
-                    console.error("Erreur de lecture vocale:", err);
-                }
+                synth.speak(utterance);
+                lastText = text;
+            } catch (err) {
+                console.error("Erreur de lecture vocale:", err);
             }
+        }
 
-            function setupListeners(doc) {
-                if (!doc) return;
-                if (doc._buseTtsActive) return; 
-                doc._buseTtsActive = true;
+        function setupListeners(doc) {
+            if (!doc) return;
+            if (doc._buseTtsActive) return; 
+            doc._buseTtsActive = true;
 
-                doc.addEventListener("mouseover", (e) => {
-                    const el = e.target;
-                    if (!el) return;
+            doc.addEventListener("mouseover", (e) => {
+                const el = e.target;
+                if (!el) return;
 
-                    let targetEl = el;
-                    let textToRead = "";
-                    let depth = 0;
+                let targetEl = el;
+                let textToRead = "";
+                let depth = 0;
 
-                    while (targetEl && depth < 3) {
-                        textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
-                        if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
-                            break;
-                        }
-                        targetEl = targetEl.parentElement;
-                        depth++;
+                while (targetEl && depth < 3) {
+                    textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
+                    if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
+                        break;
                     }
-
-                    if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
-                        clearTimeout(timer);
-                        timer = setTimeout(() => {
-                            ttsSpeak(textToRead.trim());
-                        }, 120);
-                    }
-                });
-
-                doc.addEventListener("mouseout", () => {
-                    lastText = "";
-                });
-            }
-
-            try {
-                setupListeners(document);
-            } catch(e) { console.error("Erreur doc local:", e); }
-
-            try {
-                if (window.parent && window.parent.document) {
-                    setupListeners(window.parent.document);
+                    targetEl = targetEl.parentElement;
+                    depth++;
                 }
-            } catch(e) {
-                console.log("Acces parent restreint. Ecouteurs locaux actifs.");
+
+                if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        ttsSpeak(textToRead.trim());
+                    }, 120);
+                }
+            });
+
+            doc.addEventListener("mouseout", () => {
+                lastText = "";
+            });
+        }
+
+        try {
+            setupListeners(document);
+        } catch(e) { console.error("Erreur doc local:", e); }
+
+        try {
+            if (window.parent && window.parent.document) {
+                setupListeners(window.parent.document);
             }
-        })()' style="display:none;">
-        """
+        } catch(e) {
+            console.log("Acces parent restreint. Ecouteurs locaux actifs.");
+        }
+    })()' style="display:none;">
+    """
 
     # Forçage CSS pour garantir une visibilité totale de la sidebar et des éléments (Plus d'invisibilité)
     st.markdown(f"""
@@ -391,14 +390,43 @@ def apply_ui_design_and_hover_tts():
         line-height: 1.5;
         margin-bottom: 20px;
     }}
+
+    /* Pied de page stylise */
+    .buse-footer {{
+        margin-top: 50px;
+        padding: 20px 0;
+        border-top: 1px solid {border_color};
+        text-align: center;
+        font-size: 0.8rem;
+        color: {text_secondary};
+    }}
     </style>
     """ + (audio_hover_js if st.session_state.get('audio_on_hover', True) else ""), unsafe_allow_html=True)
+
+# --- BLOC DE PIED DE PAGE COMMUN (MENTIONS LÉGALES & COPYRIGHT) ---
+def render_footer_credits():
+    current_year = datetime.now().year
+    st.markdown(
+        f"""
+        <div class="buse-footer" data-tts="Mentions légales. Plateforme indépendante de surveillance salariale et d audit. Copyright {current_year} La Buse. Tous droits réservés.">
+            <p style="margin-bottom: 6px; font-weight: 600;">🦉 La Buse — Plateforme indépendante de surveillance salariale & d'audit</p>
+            <p style="margin-bottom: 4px; font-size: 0.75rem; line-height: 1.4;">
+                <strong>Mentions Légales :</strong> Cet outil est une initiative privée indépendante de tout organisme étatique ou syndical. 
+                Les analyses d'audit, de conformité et de primes sont délivrées à titre purement indicatif et s'appuient sur l'état du droit en vigueur et des bases de connaissances conventionnelles. Elles ne se substituent pas à un conseil juridique personnalisé délivré par un avocat inscrit au barreau.
+            </p>
+            <p style="margin-top: 8px; font-size: 0.75rem; font-weight: 500;">
+                Copyright © {current_year} — La Buse. Tous droits réservés.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- CONSOLE EXPERTE DE RÉPONSES LOCALES IDCC 1517 & RPS ---
 def call_eagle_ia_local(prompt, context=""):
     p_lower = prompt.lower()
     
-    # Système de réponses d'experts (IDCC 1517 & Code du Travail)
+    # Système de réponses d'experts (Droit du travail & Code du Travail)
     if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower:
         return (
             "🛡️ **PROTOCOLE DE PROTECTION DES SALARIÉS & GESTION RPS ACTIVÉ**\n\n"
@@ -410,31 +438,31 @@ def call_eagle_ia_local(prompt, context=""):
         )
     elif "heure" in p_lower or "planning" in p_lower or "délai" in p_lower:
         return (
-            "⚖️ **RÉGLEMENTATION HORAIRES & PLANNINGS (IDCC 1517)**\n\n"
-            "Selon la convention collective de la Boulangerie-Pâtisserie Artisanale :\n\n"
-            "- **Délai de prévenance :** Les plannings et les modifications d'horaires doivent vous être communiqués au moins **7 jours à l'avance** pour vous permettre de vous organiser.\n"
-            "- **Majoration des Heures Supplémentaires :** Les heures effectuées au-delà de la durée légale ouvrent droit à une majoration de salaire (25% pour les 8 premières heures, 50% au-delà)."
+            "⚖️ **RÉGLEMENTATION HORAIRES & PLANNINGS**\n\n"
+            "Selon la réglementation du droit du travail :\n\n"
+            "- **Délai de prévenance :** Les plannings et les modifications d'horaires collectifs ou individuels doivent vous être communiqués dans un délai suffisant (souvent fixé à 7 jours à l'avance) pour vous permettre de vous organiser.\n"
+            "- **Majoration des Heures Supplémentaires :** Les heures effectuées au-delà de la durée légale de travail ouvrent droit à une majoration de salaire légale (25% pour les 8 premières heures, 50% au-delà)."
         )
     elif "nuit" in p_lower:
         return (
-            "🌙 **TRAVAIL DE NUIT (IDCC 1517)**\n\n"
-            "Sous la convention de la Boulangerie-Pâtisserie :\n\n"
-            "- Les heures effectuées entre **20h00 et 6h00** du matin sont qualifiées de travail de nuit.\n"
-            "- Elles ouvrent droit à une **majoration de salaire minimale de 25%** pour chaque heure travaillée, ainsi qu'à des repos compensateurs sous certains conditions."
+            "🌙 **TRAVAIL DE NUIT**\n\n"
+            "Sous le régime général du droit du travail :\n\n"
+            "- Les heures effectuées durant la période de nuit (généralement entre 21h00 et 6h00) ouvrent droit à des compensations sous forme de repos compensateur ou de majoration de salaire selon les accords de branche applicables.\n"
+            "- Le recours au travail de nuit doit rester exceptionnel et justifié par la nécessité d'assurer la continuité de l'activité économique."
         )
     elif "licenciement" in p_lower or "rupture" in p_lower:
         return (
-            "💼 **RUPTURE DE CONTRAT & INDEMNITÉS (IDCC 1517)**\n\n"
-            "L'indemnité de licenciement ou de rupture conventionnelle est calculée sur la base de l'ancienneté :\n"
+            "💼 **RUPTURE DE CONTRAT & INDEMNITÉS**\n\n"
+            "L'indemnité légale de licenciement ou de rupture conventionnelle est calculée selon l'ancienneté du salarié :\n"
             "- **1/4 de mois de salaire par année d'ancienneté** pour les 10 premières années.\n"
-            "- **1/3 de mois de salaire par année d'ancienneté** au-delà de 10 ans."
+            "- **1/3 de mois de salaire par année d'ancienneté** à partir de la 11ème année."
         )
     else:
         return (
-            "⚖️ **ANALYSE CONVENTIONNELLE (IDCC 1517)**\n\n"
+            "⚖️ **ANALYSE ET CONFORMITÉ DE VOS DROITS**\n\n"
             f"Votre requête concernant '{prompt}' a bien été intégrée à notre outil de conformité.\n\n"
-            "D'un point de vue général, la convention de la Boulangerie-Pâtisserie impose un respect strict des temps de repos quotidiens (11 heures consécutives) et hebdomadaires (35 heures consécutives).\n"
-            "N'hésitez pas à vous rapprocher de notre réseau local dans l'onglet **Réseau Sentinelles** pour obtenir l'assistance d'un juriste à Niort."
+            "D'un point de vue général, la législation du travail impose un respect strict des temps de repos quotidiens (11 heures consécutives) et hebdomadaires (35 heures consécutives).\n"
+            "N'hésitez pas à vous rapprocher de notre réseau local dans l'onglet **Réseau Sentinelles** pour obtenir l'assistance d'un délégué ou d'un juriste à proximité."
         )
 
 def generate_browser_speech_widget(text):
@@ -477,11 +505,11 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
 def main_app():
     apply_ui_design_and_hover_tts()
     
+    # Retrait de la rubrique "Code du travail" (Convention Collective)
     menu_items = [
         "Accueil",
         "Eagle Agent (IA & RPS)",
         "Analyse & Audit",
-        "Code du travail",
         "Réseau Sentinelles",
         "Calculateur de primes",
         "Mes documents"
@@ -504,7 +532,11 @@ def main_app():
         )
         
         # Navigation synchronisée d'une simplicité et d'une stabilité absolues
-        nav = st.radio("MENU", menu_items, key="sidebar_nav_v8")
+        nav_init = st.session_state.get('sidebar_nav_v8', "Accueil")
+        if nav_init not in menu_items:
+            nav_init = "Accueil"
+            
+        nav = st.radio("MENU", menu_items, index=menu_items.index(nav_init), key="sidebar_radio_selection_v8")
         
         # Met à jour la variable d'état
         st.session_state['sidebar_nav_v8'] = nav
@@ -526,7 +558,9 @@ def main_app():
     col_main, col_right_pane = st.columns([3, 1])
 
     with col_main:
-        if st.session_state.get('sidebar_nav_v8', "Accueil") == "Accueil":
+        current_nav = st.session_state.get('sidebar_nav_v8', "Accueil")
+        
+        if current_nav == "Accueil":
             col_text, col_mascotte = st.columns([2, 1])
             with col_text:
                 st.markdown(
@@ -626,7 +660,7 @@ def main_app():
                     """, unsafe_allow_html=True
                 )
 
-        elif st.session_state.get('sidebar_nav_v8') == "Eagle Agent (IA & RPS)":  # Eagle Agent (IA & RPS)
+        elif current_nav == "Eagle Agent (IA & RPS)":  # Eagle Agent (IA & RPS)
             st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             
@@ -646,23 +680,17 @@ def main_app():
                     st.markdown(chat['a'])
                     generate_browser_speech_widget(chat['a'])
 
-        elif st.session_state.get('sidebar_nav_v8') == "Analyse & Audit":  # Analyse & Audit
+        elif current_nav == "Analyse & Audit":  # Analyse & Audit
             st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit Documentaire</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             doc_uploaded = st.file_uploader("Importer une fiche de paie ou un contrat", type=["pdf", "png", "jpg"], key="uploader_audit_v8")
             if doc_uploaded:
                 if st.button("Lancer l'audit", key="btn_audit_action_v8"):
-                    st.session_state['analysis_results'] = "Analyse : Conformité IDCC 1517 validée. Vigilance recommandée sur les temps de repos."
+                    st.session_state['analysis_results'] = "Analyse : Conformité validée. Vigilance recommandée sur les temps de repos."
                     st.success("Audit complété !")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.get('sidebar_nav_v8') == "Code du travail":  # Code du travail
-            st.markdown("<h2 class='glow-text'>⚖️ Code du travail</h2>", unsafe_allow_html=True)
-            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            st.info("La Convention Collective Boulangerie-Pâtisserie (IDCC 1517) régit l'activité.")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        elif st.session_state.get('sidebar_nav_v8') == "Réseau Sentinelles":  # Réseau Sentinelles
+        elif current_nav == "Réseau Sentinelles":  # Réseau Sentinelles
             st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
             df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
             st.map(df_sentinelles)
@@ -671,7 +699,7 @@ def main_app():
                 st.write(f"📍 **{d['Nom']}** ({d['Type']}) — `Téléphone : {d['Contact']}`")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.get('sidebar_nav_v8') == "Calculateur de primes":  # Calculateur de primes
+        elif current_nav == "Calculateur de primes":  # Calculateur de primes
             st.markdown("<h2 class='glow-text'>💎 Calculateur de Primes & Salaire</h2>", unsafe_allow_html=True)
             col_inf, col_sal = st.columns(2)
             with col_inf:
@@ -694,11 +722,14 @@ def main_app():
                 st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.get('sidebar_nav_v8') == "Mes documents":  # Mes documents
+        elif current_nav == "Mes documents":  # Mes documents
             st.markdown("<h2 class='glow-text'>📂 Mes documents</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            st.code("📄 contrat_de_travail_IDCC1517.pdf\n📄 avenant_infinity_v4.pdf", language="text")
+            st.code("📄 contrat_de_travail.pdf\n📄 avenant_infinity_v4.pdf", language="text")
             st.markdown("</div>", unsafe_allow_html=True)
+
+        # Pied de page systematique avec Mentions Legales et Copyright en bas de chaque rubrique
+        render_footer_credits()
 
     # 2. PANNEAU DE DROITE (Fidèle à la photo 2)
     with col_right_pane:
@@ -708,7 +739,7 @@ def main_app():
             <div class='buse-card' style='padding: 15px;'>
                 <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>📄 Analyser mon CV</p>
                 <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>⚖️ Comparer mon contrat</p>
-                <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>🔍 Consulter ma convention</p>
+                <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>🔍 Consulter mes droits</p>
                 <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>💎 Simuler une prime</p>
             </div>
             """, unsafe_allow_html=True
