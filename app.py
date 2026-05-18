@@ -153,7 +153,7 @@ def apply_ui_design_and_hover_tts():
         sidebar_text_color = "#1E203B"
 
     # Injection robuste et sécurisée via gestion d'erreur d'image (Bypasse le bac à sable de Streamlit / CORS)
-    # Garantit qu'aucune apostrophe libre ne brise l'attribut HTML onerror.
+    # L'utilisation de guillemets simples à l'extérieur et doubles à l'intérieur évite toute cassure de l'attribut HTML.
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
@@ -229,7 +229,7 @@ def apply_ui_design_and_hover_tts():
 
                     while (targetEl && depth < 3) {
                         textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
-                        if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=\\"stMarkdownContainer\\"]")) {
+                        if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
                             break;
                         }
                         targetEl = targetEl.parentElement;
@@ -505,6 +505,9 @@ def main_app():
         
         # Navigation synchronisée d'une simplicité et d'une stabilité absolues
         nav = st.radio("MENU", menu_items, key="sidebar_nav_v8")
+        
+        # Met à jour la variable d'état
+        st.session_state['sidebar_nav_v8'] = nav
         
         st.markdown("---")
         st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
