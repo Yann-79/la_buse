@@ -28,7 +28,7 @@ if 'ai_history' not in st.session_state:
 if 'theme_mode' not in st.session_state:
     st.session_state.theme_mode = "light"  # Par défaut light conforme à la Photo 2
 if 'audio_on_hover' not in st.session_state:
-    st.session_state.audio_on_hover = True  # Activé par défaut pour l'accessibilité
+    st.session_state.audio_on_hover = True  # Activé par défaut pour l'accessibilité vocale au survol
 if 'non_voyant' not in st.session_state:
     st.session_state.non_voyant = False
 if 'high_contrast' not in st.session_state:
@@ -39,6 +39,8 @@ if 'analysis_results' not in st.session_state:
     st.session_state.analysis_results = None
 if 'user_location' not in st.session_state:
     st.session_state.user_location = {"lat": 46.3833, "lon": -0.4500}  # Niort / Saint-Maxire
+if 'carousel_index' not in st.session_state:
+    st.session_state.carousel_index = 0
 
 # --- BASE DE DONNÉES ENRICHIE (DÉFENSEURS, SYNDICATS & AVOCATS) ---
 EXPERT_DIRECTORY = [
@@ -48,6 +50,64 @@ EXPERT_DIRECTORY = [
     {"Type": "Union Syndicale", "Nom": "Union Départementale CGT 79", "Contact": "05 49 24 35 12", "Adresse": "Place de la Comédie, 79000 Niort", "lat": 46.3262, "lon": -0.4595, "Desc": "Permanences juridiques et défense face au harcèlement et à la pression au travail."},
     {"Type": "Défenseur des Droits", "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", "Contact": "05 49 04 00 00", "Adresse": "10 Rue du Tribunal, 79000 Niort", "lat": 46.3242, "lon": -0.4645, "Desc": "Médiateur de proximité pour la défense de vos libertés individuelles au travail."}
 ]
+
+# Données pour le carrousel d'informations
+CAROUSEL_ITEMS = [
+    {
+        "titre": "🛡️ Votre santé est une priorité absolue",
+        "description": "L'employeur est légalement tenu de protéger votre santé physique et mentale (Article L4121-1 du Code du travail). Ne restez pas isolé face aux pressions managériales.",
+        "badge": "Prévention RPS"
+    },
+    {
+        "titre": "📈 Déplafonnement de prime Infinity V4",
+        "description": "Atteignez les paliers de bonus de 20% à 100% en surveillant votre écart de CA magasin par rapport au seuil de référence de 1300 € issu de votre document.",
+        "badge": "Primes & Salaires"
+    },
+    {
+        "titre": "⚖️ Convention Collective IDCC 1517",
+        "description": "Salariés des Boulangeries-Pâtisseries : bénéficiez de grilles de salaires garanties, de majorations pour heures de nuit et de garanties de prévoyance spécifiques.",
+        "badge": "Vos Droits"
+    }
+]
+
+# Vecteur SVG de la chouette violette de la maquette (Photo 2)
+MASCOT_SVG = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="130" height="130">
+  <circle cx="60" cy="60" r="55" fill="#E8E7FF"/>
+  <polygon points="35,45 23,20 50,33" fill="#5551FF"/>
+  <polygon points="85,45 97,20 70,33" fill="#5551FF"/>
+  <ellipse cx="60" cy="70" rx="35" ry="40" fill="#5551FF"/>
+  <ellipse cx="60" cy="75" rx="25" ry="30" fill="#FFFFFF"/>
+  <circle cx="45" cy="45" r="18" fill="#FFFFFF"/>
+  <circle cx="45" cy="45" r="9" fill="#1E203B"/>
+  <circle cx="43" cy="43" r="3" fill="#FFFFFF"/>
+  <circle cx="75" cy="45" r="18" fill="#FFFFFF"/>
+  <circle cx="75" cy="45" r="9" fill="#1E203B"/>
+  <circle cx="73" cy="43" r="3" fill="#FFFFFF"/>
+  <polygon points="60,48 55,58 65,58" fill="#FF9F43"/>
+  <path d="M55,70 Q60,74 65,70" stroke="#5551FF" stroke-width="2" fill="none"/>
+  <path d="M50,78 Q60,82 70,78" stroke="#5551FF" stroke-width="2" fill="none"/>
+</svg>
+"""
+
+# Mascotte miniature pour la barre latérale
+MINI_MASCOT_SVG = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="40" height="40" style="vertical-align: middle; margin-right: 10px;">
+  <circle cx="60" cy="60" r="55" fill="#E8E7FF"/>
+  <polygon points="35,45 23,20 50,33" fill="#5551FF"/>
+  <polygon points="85,45 97,20 70,33" fill="#5551FF"/>
+  <ellipse cx="60" cy="70" rx="35" ry="40" fill="#5551FF"/>
+  <ellipse cx="60" cy="75" rx="25" ry="30" fill="#FFFFFF"/>
+  <circle cx="45" cy="45" r="18" fill="#FFFFFF"/>
+  <circle cx="45" cy="45" r="9" fill="#1E203B"/>
+  <circle cx="75" cy="45" r="18" fill="#FFFFFF"/>
+  <circle cx="75" cy="45" r="9" fill="#1E203B"/>
+  <polygon points="60,48 55,58 65,58" fill="#FF9F43"/>
+</svg>
+"""
+
+def get_base64_svg(svg_content):
+    return base64.b64encode(svg_content.encode()).decode()
 
 # --- FONCTION DE CALCUL DE DISTANCE ---
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -69,18 +129,19 @@ def apply_ui_design_and_hover_tts():
         text_primary = "#FFFFFF"
         text_secondary = "#FFFF00"
         border_color = "#FFFF00"
-    else:  # Light Mode (Fidèle à la maquette de la Photo 2)
+        sidebar_text_color = "#FFFFFF"
+    else:  # Light Mode de la Maquette (Photo 2)
         bg_color = "#F4F5FC"
         card_bg = "#FFFFFF"
         text_primary = "#1E203B"
         text_secondary = "#6B7280"
         border_color = "rgba(0, 0, 0, 0.05)"
+        sidebar_text_color = "#1E203B"
 
-    # Script JavaScript d'accessibilité vocale au survol (Web Speech API)
-    audio_hover_js = ""
-    if st.session_state.audio_on_hover:
-        audio_hover_js = """
-        <script>
+    # Script JavaScript autonome de lecture vocale au survol (évite les bugs de formatage f-string)
+    audio_hover_js = """
+    <script>
+    (function() {
         const synth = window.speechSynthesis;
         let lastText = "";
         
@@ -97,7 +158,7 @@ def apply_ui_design_and_hover_tts():
         document.addEventListener('mouseover', (e) => {
             const el = e.target;
             const textToRead = el.getAttribute('data-tts') || el.innerText;
-            if (el.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card') && textToRead && textToRead.length < 300) {
+            if (el.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, .carousel-badge') && textToRead && textToRead.length < 300) {
                 ttsSpeak(textToRead.trim());
             }
         });
@@ -105,8 +166,9 @@ def apply_ui_design_and_hover_tts():
         document.addEventListener('mouseout', () => {
             lastText = "";
         });
-        </script>
-        """
+    })();
+    </script>
+    """
 
     st.markdown(f"""
     <style>
@@ -118,13 +180,31 @@ def apply_ui_design_and_hover_tts():
         font-family: 'Inter', sans-serif;
     }}
     
-    /* Sidebar restylée aux normes Apple minimalistes */
+    /* CORRECTION DE L'ILLISIBILITÉ : Force le contraste de la sidebar */
     section[data-testid="stSidebar"] {{
-        background-color: {card_bg};
-        border-right: 1px solid {border_color};
+        background-color: {card_bg} !important;
+        border-right: 1px solid {border_color} !important;
     }}
     
-    /* Cartes fidèles à l'image 2 */
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] div {{
+        color: {sidebar_text_color} !important;
+        font-weight: 500 !important;
+    }}
+    
+    section[data-testid="stSidebar"] .stRadio label p {{
+        color: {sidebar_text_color} !important;
+        font-size: 0.95rem !important;
+        font-weight: 500 !important;
+    }}
+
+    /* Cartes de contenu (Photo 2) */
     .buse-card {{
         background-color: {card_bg};
         border-radius: 16px;
@@ -158,39 +238,21 @@ def apply_ui_design_and_hover_tts():
         margin-bottom: 30px;
     }}
     
-    /* Boutons de la maquette */
+    /* Boutons stylisés Maquette */
     .stButton>button {{
-        background-color: {accent_color};
-        color: white;
-        border-radius: 12px;
-        border: none;
-        padding: 12px 24px;
-        font-weight: 600;
-        transition: background-color 0.2s;
-        width: 100%;
+        background-color: {accent_color} !important;
+        color: white !important;
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-weight: 600 !important;
+        transition: background-color 0.2s !important;
+        width: 100% !important;
     }}
     
     .stButton>button:hover {{
-        background-color: {hover_color};
-        color: white;
-    }}
-    
-    /* Pills interactifs */
-    .buse-pill {{
-        background: rgba(85, 81, 255, 0.05);
-        color: {accent_color};
-        padding: 8px 16px;
-        border-radius: 50px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        display: inline-block;
-        margin: 4px;
-        cursor: pointer;
-        transition: background 0.2s;
-    }}
-    
-    .buse-pill:hover {{
-        background: rgba(85, 81, 255, 0.12);
+        background-color: {hover_color} !important;
+        color: white !important;
     }}
     
     .mascotte-logo-container {{
@@ -198,29 +260,61 @@ def apply_ui_design_and_hover_tts():
         margin-bottom: 30px;
     }}
     
-    .mascotte-logo-container img {{
-        border-radius: 50%;
-        box-shadow: 0 4px 15px rgba(85, 81, 255, 0.15);
+    /* Styles spécifiques pour le carrousel interactif */
+    .carousel-container {{
+        background-color: {card_bg};
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+        border: 1px solid {accent_color};
+        box-shadow: 0 6px 25px rgba(85, 81, 255, 0.06);
+        position: relative;
+    }}
+    
+    .carousel-badge {{
+        background-color: rgba(85, 81, 255, 0.1);
+        color: {accent_color};
+        padding: 6px 12px;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        display: inline-block;
+        margin-bottom: 12px;
+    }}
+    
+    .carousel-title {{
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: {text_primary};
+        margin-bottom: 8px;
+    }}
+    
+    .carousel-desc {{
+        font-size: 0.95rem;
+        color: {text_secondary};
+        line-height: 1.5;
+        margin-bottom: 20px;
     }}
     </style>
-    {audio_hover_js}
-    """, unsafe_allow_html=True)
+    """ + (audio_hover_js if st.session_state.audio_on_hover else ""), unsafe_allow_html=True)
 
-# --- SERVICES IA & AUDIO ---
+# --- SERVICES IA & AUDIO NATIVE ---
 def call_eagle_ia(prompt, context=""):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
     system_prompt = (
         "Tu es EAGLE, l'IA de 'La Buse'. Expert : IDCC 1517 et Code du Travail. "
-        "Si l'utilisateur évoque des risques psychosociaux, de l'épuisement ou du harcèlement, adopte un ton bienveillant, protecteur, et guide-le précisément sur les actions d'accompagnement légal."
+        "Si l'utilisateur évoque des risques psychosociaux, de l'épuisement ou du harcèlement, adopte un ton protecteur, bienveillant et guide-le précisément sur les actions de défense."
     )
     if not API_KEY:
         if "harcèlement" in prompt.lower() or "rps" in prompt.lower() or "souffrance" in prompt.lower() or "épuisement" in prompt.lower():
             return (
                 "🛡️ **ASSISTANCE SÉCURITÉ JURIDIQUE - SOUFFRANCE AU TRAVAIL**\n\n"
-                "Face à une situation d'épuisement professionnel ou de pressions répétées :\n"
-                "1. **Consignez par écrit chaque fait précis** (dates, heures, témoins, emails) sur un support personnel externe.\n"
-                "2. **Alertez de vous-même la Médecine du Travail** qui détient une capacité de préconisation d'aménagement de poste.\n"
-                "3. **Saisissez vos représentants du personnel (CSE)** qui peuvent lancer une alerte interne d'atteinte aux personnes."
+                "Face à une situation de souffrance professionnelle, d'épuisement ou de harcèlement, voici vos recours de défense :\n"
+                "1. **Consignez de manière écrite tous les faits** (propos, plannings, emails) sur un support personnel externe à l'entreprise.\n"
+                "2. **Alertez de vous-même la Médecine du Travail** : ils sont tenus au secret médical et peuvent proposer ou imposer des aménagements de poste.\n"
+                "3. **Saisissez vos représentants du personnel (CSE)** : ils détiennent un droit d'alerte spécifique pour atteinte aux droits individuels et à la santé mentale."
             )
         return f"Analyse de conformité pour '{prompt}' prête dans la base légale IDCC 1517."
     payload = {
@@ -235,7 +329,7 @@ def call_eagle_ia(prompt, context=""):
         pass
     return "⚠️ Service IA indisponible temporairement."
 
-def generate_browser_speech_widget(text, element_id):
+def generate_browser_speech_widget(text):
     """Génère un widget d'élocution native et fluide pour l'Agent Eagle"""
     clean_text = text.replace('"', '\\"').replace('\n', ' ')
     html_code = f"""
@@ -276,10 +370,12 @@ def main_app():
     apply_ui_design_and_hover_tts()
     
     with st.sidebar:
+        # En-tête de la sidebar avec la mascotte SVG et le nom de l'application
         st.markdown(
-            """
-            <div style='text-align: center; margin-bottom: 20px;'>
-                <h1 style='color:#5551FF; font-size:1.8rem; margin:0;'>🦉 la buse</h1>
+            f"""
+            <div style='display: flex; align-items: center; justify-content: center; margin-bottom: 25px;'>
+                <img src='data:image/svg+xml;base64,{get_base64_svg(MINI_MASCOT_SVG)}' alt='Logo'>
+                <span style='color:#5551FF; font-size:1.8rem; font-weight:700;'>la buse</span>
             </div>
             """, 
             unsafe_allow_html=True
@@ -293,21 +389,21 @@ def main_app():
             "Réseau Sentinelles",
             "Calculateur de primes",
             "Mes documents"
-        ], key="sidebar_nav_v7")
+        ], key="sidebar_nav_v8")
         
         st.markdown("---")
-        st.markdown("<h4 class='glow-text'>🔊 Accessibilité</h4>", unsafe_allow_html=True)
-        st.session_state.non_voyant = st.toggle("♿ Mode non voyant", value=st.session_state.non_voyant, key="tg_non_voyant_v7")
-        st.session_state.audio_on_hover = st.toggle("🔊 Audio au survol", value=st.session_state.audio_on_hover, key="tg_audio_hover_v7")
-        st.session_state.high_contrast = st.toggle("🌓 Contraste élevé", value=st.session_state.high_contrast, key="tg_contrast_v7")
+        st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
+        st.session_state.non_voyant = st.toggle("♿ Mode non voyant", value=st.session_state.non_voyant, key="tg_non_voyant_v8")
+        st.session_state.audio_on_hover = st.toggle("🔊 Audio au survol", value=st.session_state.audio_on_hover, key="tg_audio_hover_v8")
+        st.session_state.high_contrast = st.toggle("🌓 Contraste élevé", value=st.session_state.high_contrast, key="tg_contrast_v8")
         
         st.markdown("---")
-        if st.button("DÉCONNEXION", key="btn_logout_main_v7"):
+        if st.button("DÉCONNEXION", key="btn_logout_main_v8"):
             st.session_state.auth = False
             st.session_state.loading_complete = False
             st.rerun()
 
-    # --- ARCHITECTURE PAR DIVISION ASYMÉTRIQUE ---
+    # --- ARCHITECTURE PAR DIVISION ASYMÉTRIQUE (Photo 2) ---
     col_main, col_right_pane = st.columns([3, 1])
 
     with col_main:
@@ -324,17 +420,17 @@ def main_app():
                     unsafe_allow_html=True
                 )
             with col_mascotte:
-                # Intégration de l'illustration de la mascotte chouette conforme à l'image 2
+                # Mascotte Chouette violette vectorielle
                 st.markdown(
-                    """
+                    f"""
                     <div class='mascotte-logo-container'>
-                        <img src='https://images.unsplash.com/photo-1544390158-4eb317247f31?q=80&w=200&auto=format&fit=crop' alt='Chouette La Buse' width='130'>
+                        <img src='data:image/svg+xml;base64,{get_base64_svg(MASCOT_SVG)}' alt='Chouette La Buse'>
                     </div>
                     """, 
                     unsafe_allow_html=True
                 )
                 
-            search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Ex : Puis-je refuser des heures supplémentaires ?", key="home_global_search_v7")
+            search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Ex : Puis-je refuser des heures supplémentaires ?", key="home_global_search_v8")
             if search_q:
                 st.session_state.ai_history.append({"q": search_q, "a": call_eagle_ia(search_q)})
                 st.toast("Analyse lancée...")
@@ -348,10 +444,38 @@ def main_app():
             cols_sug = st.columns(3)
             for idx, sug in enumerate(suggestions):
                 with cols_sug[idx]:
-                    if st.button(sug, key=f"sug_btn_{idx}_v7"):
+                    if st.button(sug, key=f"sug_btn_{idx}_v8"):
                         response = call_eagle_ia(sug)
                         st.session_state.ai_history.append({"q": sug, "a": response})
                         st.toast("Analyse lancée !")
+
+            # --- CARROUSEL D'INFORMATIONS INTERACTIF ---
+            st.markdown("<h3 style='margin-top: 25px;'>Actualités & Informations Clés</h3>", unsafe_allow_html=True)
+            
+            # Récupération de l'élément actif du carrousel
+            current_item = CAROUSEL_ITEMS[st.session_state.carousel_index]
+            
+            st.markdown(
+                f"""
+                <div class="carousel-container">
+                    <span class="carousel-badge" data-tts="{current_item['badge']}">{current_item['badge']}</span>
+                    <div class="carousel-title" data-tts="{current_item['titre']}">{current_item['titre']}</div>
+                    <div class="carousel-desc" data-tts="{current_item['description']}">{current_item['description']}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # Contrôles de navigation du carrousel
+            col_prev, col_spacer, col_next = st.columns([1, 4, 1])
+            with col_prev:
+                if st.button("⬅️ Précédent", key="carousel_prev"):
+                    st.session_state.carousel_index = (st.session_state.carousel_index - 1) % len(CAROUSEL_ITEMS)
+                    st.rerun()
+            with col_next:
+                if st.button("Suivant ➡️", key="carousel_next"):
+                    st.session_state.carousel_index = (st.session_state.carousel_index + 1) % len(CAROUSEL_ITEMS)
+                    st.rerun()
 
             # Les 4 dalles d'actions principales de la Photo 2
             st.markdown("<h3 style='margin-top: 35px;'>Ce que La buse peut faire pour vous</h3>", unsafe_allow_html=True)
@@ -386,8 +510,8 @@ def main_app():
         elif nav == "Eagle Agent (IA & RPS)":
             st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            user_input = st.text_input("Saisissez votre question ou signalez une difficulté (harcèlement, pressions, RPS) :", placeholder="Votre message...", key="eagle_ia_input_v7")
-            if st.button("Lancer l'Analyse", key="btn_run_ia_v7"):
+            user_input = st.text_input("Posez votre question juridique ou signalez une difficulté (harcèlement, pressions, RPS) :", placeholder="Votre message...", key="eagle_ia_input_v8")
+            if st.button("Lancer l'Analyse", key="btn_run_ia_v8"):
                 if user_input:
                     response = call_eagle_ia(user_input, st.session_state.analysis_results or "")
                     st.session_state.ai_history.append({"q": user_input, "a": response})
@@ -397,14 +521,14 @@ def main_app():
             for idx, chat in enumerate(reversed(st.session_state.ai_history)):
                 with st.expander(f"Question : {chat['q']}", expanded=True):
                     st.write(chat['a'])
-                    generate_browser_speech_widget(chat['a'], idx)
+                    generate_browser_speech_widget(chat['a'])
 
         elif nav == "Analyse & Audit":
             st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit Documentaire</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            doc_uploaded = st.file_uploader("Importer un document", type=["pdf", "png", "jpg"], key="uploader_audit_v7")
+            doc_uploaded = st.file_uploader("Importer une fiche de paie ou un contrat", type=["pdf", "png", "jpg"], key="uploader_audit_v8")
             if doc_uploaded:
-                if st.button("Lancer l'audit", key="btn_audit_action_v7"):
+                if st.button("Lancer l'audit", key="btn_audit_action_v8"):
                     st.session_state.analysis_results = "Analyse : Conformité IDCC 1517 validée. Vigilance recommandée sur les temps de repos."
                     st.success("Audit complété !")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -430,8 +554,8 @@ def main_app():
             with col_inf:
                 st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
                 st.subheader("Prime Infinity (Barème PDF)")
-                ca_magasin = st.number_input("Chiffre d'Affaires réalisé Magasin (€)", value=1750.0, step=50.0, key="ca_mag_calc_v7")
-                h_travail = st.number_input("Heures réelles travaillées", value=48, step=1, key="h_pres_calc_v7")
+                ca_magasin = st.number_input("Chiffre d'Affaires réalisé Magasin (€)", value=1750.0, step=50.0, key="ca_mag_calc_v8")
+                h_travail = st.number_input("Heures réelles travaillées", value=48, step=1, key="h_pres_calc_v8")
                 ecart, bonus, color, progress = calculate_infinity_v4(ca_magasin, h_travail)
                 st.metric("Écart au seuil magasin (1300 €)", f"{ecart:.2f} €")
                 st.markdown(f"#### Prime : <span style='color:{color}; font-size:1.4em;'>{bonus}</span>", unsafe_allow_html=True)
@@ -440,8 +564,8 @@ def main_app():
             with col_sal:
                 st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
                 st.subheader("Simulateur de Revenus")
-                brut = st.number_input("Salaire Mensuel Brut (€)", value=2100.0, step=50.0, key="brut_salary_calc_v7")
-                statut = st.selectbox("Statut de l'employé", ["Non-Cadre (22%)", "Cadre (25%)"], key="statut_salary_calc_v7")
+                brut = st.number_input("Salaire Mensuel Brut (€)", value=2100.0, step=50.0, key="brut_salary_calc_v8")
+                statut = st.selectbox("Statut de l'employé", ["Non-Cadre (22%)", "Cadre (25%)"], key="statut_salary_calc_v8")
                 taux = 0.78 if "Non-Cadre" in statut else 0.75
                 st.write(f"### NET ESTIMÉ : **{brut * taux:.2f} €**")
                 st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
@@ -475,7 +599,7 @@ def main_app():
             </div>
             """, unsafe_allow_html=True
         )
-        if st.button("Être mis en relation", key="btn_right_sentinel_action_v7"):
+        if st.button("Être mis en relation", key="btn_right_sentinel_action_v8"):
             st.success("Mise en relation d'urgence demandée.")
 
 # --- INITIALISATION ÉQUILIBRÉE ET SÉCURISÉE ---
@@ -502,8 +626,8 @@ if not st.session_state.auth:
         st.markdown("<br><br><br><br>", unsafe_allow_html=True)
         st.markdown("<div class='buse-card' style='text-align:center;'>", unsafe_allow_html=True)
         st.markdown("<h2 class='glow-text'>accès sécurisé</h2>", unsafe_allow_html=True)
-        pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v7")
-        if st.button("DÉVERROUILLER", key="btn_submit_login_v7"):
+        pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v8")
+        if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
             if pin == "1234":
                 st.session_state.auth = True
                 st.rerun()
