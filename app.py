@@ -62,8 +62,8 @@ if 'carousel_index' not in st.session_state:
 # --- BASE DE DONNÉES ENRICHIE (DÉFENSEURS, SYNDICATS & AVOCATS DE PROXIMITÉ) ---
 EXPERT_DIRECTORY = [
     {"Type": "Avocat Spécialisé", "Nom": "Cabinet d'Avocats Droit du Travail Niortais", "Contact": "05 49 24 10 20", "Adresse": "12 Rue de la Regratterie, 79000 Niort", "lat": 46.3235, "lon": -0.4635, "Desc": "Spécialisé en licenciements, contrats de travail et Risques Psychosociaux (RPS)."},
-    {"Type": "Avocat Spécialisé", "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", "Contact": "05 49 77 15 30", "Adresse": "45 Avenue de Limoges, 79000 Niort", "lat": 46.3190, "lon": -0.4480, "Desc": "Conseil et défense des salariés de la boulangerie devant le Conseil de Prud'hommes."},
-    {"Type": "Union Syndicale", "Nom": "UD CFDT Deux-Sèvres", "Contact": "05 49 24 51 32", "Adresse": "Maison des Syndicats, 79000 Niort", "lat": 46.3280, "lon": -0.4610, "Desc": "Accompagnement syndical, défense des droits des salariés de la boulangerie (IDCC 1517)."},
+    {"Type": "Avocat Spécialisé", "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", "Contact": "05 49 77 15 30", "Adresse": "45 Avenue de Limoges, 79000 Niort", "lat": 46.3190, "lon": -0.4480, "Desc": "Conseil et défense des salariés devant le Conseil de Prud'hommes."},
+    {"Type": "Union Syndicale", "Nom": "UD CFDT Deux-Sèvres", "Contact": "05 49 24 51 32", "Adresse": "Maison des Syndicats, 79000 Niort", "lat": 46.3280, "lon": -0.4610, "Desc": "Accompagnement syndical, défense des droits des salariés."},
     {"Type": "Union Syndicale", "Nom": "Union Départementale CGT 79", "Contact": "05 49 24 35 12", "Adresse": "Place de la Comédie, 79000 Niort", "lat": 46.3262, "lon": -0.4595, "Desc": "Permanences juridiques et défense face au harcèlement et à la pression au travail."},
     {"Type": "Défenseur des Droits", "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", "Contact": "05 49 04 00 00", "Adresse": "10 Rue du Tribunal, 79000 Niort", "lat": 46.3242, "lon": -0.4645, "Desc": "Médiateur de proximité pour la défense de vos libertés individuelles au travail."}
 ]
@@ -152,113 +152,118 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Intégration textuelle et rigoureuse au caractère près de votre script d'accessibilité vocale au survol.
-    audio_hover_js = r"""
-    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror='(function() {
-        let synth = null;
-        try {
-            synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
-        } catch(e) {
-            synth = window.speechSynthesis;
-        }
-
-        if (!synth) {
-            console.warn("SpeechSynthesis non supporte sur ce navigateur.");
-            return;
-        }
-
-        let lastText = "";
-        let timer = null;
-        let isUnlocked = false;
-
-        function unlockSpeech() {
-            if (isUnlocked) return;
+    # Script d'accessibilité vocale au survol (Web Speech API) EXACTEMENT fourni par l'utilisateur.
+    # Intégré proprement dans un tag <script> natif pour une performance et une compatibilité parfaites.
+    audio_hover_js = ""
+    if st.session_state.get('audio_on_hover', True):
+        audio_hover_js = r"""
+        <script>
+        (function() {
+            let synth = null;
             try {
-                const u = new SpeechSynthesisUtterance("");
-                u.volume = 0;
-                synth.speak(u);
-                isUnlocked = true;
-                console.log("Moteur audio d accessibilite degenere...");
+                synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
             } catch(e) {
-                console.error("Erreur de deverrouillage de la synthese vocale:", e);
+                synth = window.speechSynthesis;
             }
-        }
 
-        document.addEventListener("click", unlockSpeech, { once: true });
-        document.addEventListener("touchstart", unlockSpeech, { once: true });
-        try {
-            if (window.parent && window.parent.document) {
-                window.parent.document.addEventListener("click", unlockSpeech, { once: true });
-                window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
+            if (!synth) {
+                console.warn("SpeechSynthesis non supporte sur ce navigateur.");
+                return;
             }
-        } catch(e) {}
 
-        function ttsSpeak(text) {
-            if (!text || text === lastText) return;
+            let lastText = "";
+            let timer = null;
+            let isUnlocked = false;
+
+            function unlockSpeech() {
+                if (isUnlocked) return;
+                try {
+                    const u = new SpeechSynthesisUtterance("");
+                    u.volume = 0;
+                    synth.speak(u);
+                    isUnlocked = true;
+                    console.log("Moteur audio d accessibilite degenere...");
+                } catch(e) {
+                    console.error("Erreur de deverrouillage de la synthese vocale:", e);
+                }
+            }
+
+            document.addEventListener("click", unlockSpeech, { once: true });
+            document.addEventListener("touchstart", unlockSpeech, { once: true });
             try {
-                synth.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = "fr-FR";
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
+                if (window.parent && window.parent.document) {
+                    window.parent.document.addEventListener("click", unlockSpeech, { once: true });
+                    window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
+                }
+            } catch(e) {}
 
-                if (!isUnlocked) unlockSpeech();
+            function ttsSpeak(text) {
+                if (!text || text === lastText) return;
+                try {
+                    synth.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = "fr-FR";
+                    utterance.rate = 1.0;
+                    utterance.pitch = 1.0;
 
-                synth.speak(utterance);
-                lastText = text;
-            } catch (err) {
-                console.error("Erreur de lecture vocale:", err);
+                    if (!isUnlocked) unlockSpeech();
+
+                    synth.speak(utterance);
+                    lastText = text;
+                } catch (err) {
+                    console.error("Erreur de lecture vocale:", err);
+                }
             }
-        }
 
-        function setupListeners(doc) {
-            if (!doc) return;
-            if (doc._buseTtsActive) return; 
-            doc._buseTtsActive = true;
+            function setupListeners(doc) {
+                if (!doc) return;
+                if (doc._buseTtsActive) return; 
+                doc._buseTtsActive = true;
 
-            doc.addEventListener("mouseover", (e) => {
-                const el = e.target;
-                if (!el) return;
+                doc.addEventListener("mouseover", (e) => {
+                    const el = e.target;
+                    if (!el) return;
 
-                let targetEl = el;
-                let textToRead = "";
-                let depth = 0;
+                    let targetEl = el;
+                    let textToRead = "";
+                    let depth = 0;
 
-                while (targetEl && depth < 3) {
-                    textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
-                    if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
-                        break;
+                    while (targetEl && depth < 3) {
+                        textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
+                        if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
+                            break;
+                        }
+                        targetEl = targetEl.parentElement;
+                        depth++;
                     }
-                    targetEl = targetEl.parentElement;
-                    depth++;
-                }
 
-                if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
-                    clearTimeout(timer);
-                    timer = setTimeout(() => {
-                        ttsSpeak(textToRead.trim());
-                    }, 120);
-                }
-            });
+                    if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
+                        clearTimeout(timer);
+                        timer = setTimeout(() => {
+                            ttsSpeak(textToRead.trim());
+                        }, 120);
+                    }
+                });
 
-            doc.addEventListener("mouseout", () => {
-                lastText = "";
-            });
-        }
-
-        try {
-            setupListeners(document);
-        } catch(e) { console.error("Erreur doc local:", e); }
-
-        try {
-            if (window.parent && window.parent.document) {
-                setupListeners(window.parent.document);
+                doc.addEventListener("mouseout", () => {
+                    lastText = "";
+                });
             }
-        } catch(e) {
-            console.log("Acces parent restreint. Ecouteurs locaux actifs.");
-        }
-    })()' style="display:none;">
-    """
+
+            try {
+                setupListeners(document);
+            } catch(e) { console.error("Erreur doc local:", e); }
+
+            try {
+                if (window.parent && window.parent.document) {
+                    setupListeners(window.parent.document);
+                }
+            } catch(e) {
+                console.log("Acces parent restreint. Ecouteurs locaux actifs.");
+            }
+        })();
+        </script>
+        """
 
     # Forçage CSS pour garantir une visibilité totale de la sidebar et des éléments (Plus d'invisibilité)
     st.markdown(f"""
@@ -623,10 +628,9 @@ def main_app():
                 if st.button("⬅️ Précédent", key="carousel_prev"):
                     st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) - 1) % len(CAROUSEL_ITEMS)
                     safe_rerun()
-            with col_next:
-                if st.button("Suivant ➡️", key="carousel_next"):
-                    st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) + 1) % len(CAROUSEL_ITEMS)
-                    safe_rerun()
+            with st.button("Suivant ➡️", key="carousel_next"):
+                st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) + 1) % len(CAROUSEL_ITEMS)
+                safe_rerun()
 
             # Les 4 dalles d'actions principales de la Photo 2
             st.markdown("<h3 style='margin-top: 35px;'>Ce que La buse peut faire pour vous</h3>", unsafe_allow_html=True)
