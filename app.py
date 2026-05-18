@@ -152,31 +152,90 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Intégration exacte du script d'accessibilité vocale au survol de l'utilisateur
+    # Injection robuste via gestion d'erreur d'image (Bypasse le bac à sable de Streamlit / CORS)
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
-        <script>
-        (function() {
-            const synth = window.speechSynthesis;
-            let lastText = "";
+        <img src="x" onerror="(function() {
+            let synth = null;
+            try {
+                synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
+            } catch(e) {
+                synth = window.speechSynthesis;
+            }
+
+            if (!synth) {
+                console.warn('SpeechSynthesis non supporté sur ce navigateur.');
+                return;
+            }
+
+            let lastText = '';
             let timer = null;
+            let isUnlocked = false;
+
+            function unlockSpeech() {
+                if (isUnlocked) return;
+                try {
+                    const u = new SpeechSynthesisUtterance('');
+                    u.volume = 0;
+                    synth.speak(u);
+                    isUnlocked = true;
+                    console.log('Moteur audio d\'accessibilité déverrouillé.');
+                } catch(e) {
+                    console.error('Erreur de déverrouillage de la synthèse vocale:', e);
+                }
+            }
+
+            document.addEventListener('click', unlockSpeech, { once: true });
+            document.addEventListener('touchstart', unlockSpeech, { once: true });
+            try {
+                if (window.parent && window.parent.document) {
+                    window.parent.document.addEventListener('click', unlockSpeech, { once: true });
+                    window.parent.document.addEventListener('touchstart', unlockSpeech, { once: true });
+                }
+            } catch(e) {}
 
             function ttsSpeak(text) {
                 if (!text || text === lastText) return;
-                synth.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'fr-FR';
-                utterance.rate = 1.0;
-                synth.speak(utterance);
-                lastText = text;
+                try {
+                    synth.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'fr-FR';
+                    utterance.rate = 1.0;
+                    utterance.pitch = 1.0;
+
+                    if (!isUnlocked) unlockSpeech();
+
+                    synth.speak(utterance);
+                    lastText = text;
+                } catch (err) {
+                    console.error('Erreur de lecture vocale:', err);
+                }
             }
 
             function setupListeners(doc) {
+                if (!doc) return;
+                if (doc._buseTtsActive) return; 
+                doc._buseTtsActive = true;
+
                 doc.addEventListener('mouseover', (e) => {
                     const el = e.target;
-                    const textToRead = el.getAttribute('data-tts') || el.innerText || el.textContent;
-                    if (el.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge') && textToRead) {
+                    if (!el) return;
+
+                    let targetEl = el;
+                    let textToRead = '';
+                    let depth = 0;
+
+                    while (targetEl && depth < 3) {
+                        textToRead = targetEl.getAttribute('data-tts') || targetEl.innerText || targetEl.textContent;
+                        if (targetEl.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=\\'stMarkdownContainer\\']')) {
+                            break;
+                        }
+                        targetEl = targetEl.parentElement;
+                        depth++;
+                    }
+
+                    if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
                         clearTimeout(timer);
                         timer = setTimeout(() => {
                             ttsSpeak(textToRead.trim());
@@ -185,24 +244,22 @@ def apply_ui_design_and_hover_tts():
                 });
 
                 doc.addEventListener('mouseout', () => {
-                    lastText = "";
+                    lastText = '';
                 });
             }
 
-            // Attache les écouteurs sur le document local et sur le document parent de Streamlit
             try {
                 setupListeners(document);
-            } catch(e) { console.error("Erreur doc local:", e); }
+            } catch(e) { console.error('Erreur doc local:', e); }
 
             try {
                 if (window.parent && window.parent.document) {
                     setupListeners(window.parent.document);
                 }
             } catch(e) {
-                console.log("Accès parent restreint (CORS). Écouteurs locaux uniquement.");
+                console.log('Accès parent restreint (CORS). Écouteurs locaux actifs.');
             }
-        })();
-        </script>
+        })()" style="display:none;">
         """
 
     # Forçage CSS pour garantir une visibilité totale de la sidebar et des éléments (Plus d'invisibilité)
