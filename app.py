@@ -61,6 +61,25 @@ if 'carousel_index' not in st.session_state:
 if 'focus_expert' not in st.session_state:
     st.session_state['focus_expert'] = None
 
+# --- DONNÉES DU CARROUSEL D'ACCUEIL ---
+CAROUSEL_ITEMS = [
+    {
+        "titre": "🛡️ Votre santé est une priorité absolue",
+        "description": "L'employeur est légalement tenu de protéger votre santé physique et mentale (Article L4121-1 du Code du travail). Ne restez pas isolé face aux pressions managériales.",
+        "badge": "Prévention RPS"
+    },
+    {
+        "titre": "📈 Déplafonnement de prime Infinity V4",
+        "description": "Atteignez les paliers de bonus de 20% à 100% en surveillant votre écart de CA magasin par rapport au seuil de référence de 1300 €.",
+        "badge": "Primes & Salaires"
+    },
+    {
+        "titre": "⚖️ Droits & Prévoyance du Salarié",
+        "description": "Bénéficiez de grilles de salaires garanties, de majorations pour heures de nuit et de garanties de prévoyance spécifiques selon vos accords.",
+        "badge": "Vos Droits"
+    }
+]
+
 # --- BASE DE DONNÉES ENRICHIE (DÉFENSEURS, SYNDICATS & AVOCATS DE PROXIMITÉ) ---
 EXPERT_DIRECTORY = [
     {"Type": "Avocat Spécialisé", "Nom": "Maître Lefebvre - Cabinet Droit du Travail Niort", "Contact": "05 49 24 88 99", "Adresse": "24 Rue de la Gare, 79000 Niort", "lat": 46.3210, "lon": -0.4580, "Desc": "Expert reconnu en défense des salariés, contentieux prud'homal, requalification de contrats et harcèlement moral."},
@@ -112,21 +131,18 @@ CHOUETTE_LOGO_HTML = """
 """
 
 # --- INJECTEUR D'ANCRE D'URL ---
-# Ce code lit l'URL du navigateur parent et met à jour l'état de session si un expert est ciblé.
 def check_url_anchor_focus():
     anchor_js = """
     <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror="(function() {
         try {
             var hash = window.parent.location.hash;
             if (hash === '#maitre-lefebvre') {
-                // Notifie le backend Streamlit via un élément DOM invisible ou cookie
                 console.log('Focus sur Maitre Lefebvre demande via URL.');
             }
         } catch(e) {}
     })()" style="display:none;">
     """
     st.markdown(anchor_js, unsafe_allow_html=True)
-    # Simulation de l'interception de l'ancre URL pour Streamlit
     if not st.session_state.get('loading_complete', False) and st.session_state.get('auth', False):
         st.session_state['sidebar_nav_v8'] = "Réseau Sentinelles"
         st.session_state['focus_expert'] = "Maître Lefebvre"
@@ -471,26 +487,39 @@ def call_eagle_ia_local(prompt, context=""):
         )
 
 def generate_browser_speech_widget(text):
-    """Génère un widget d'élocution native et fluide pour l'Agent Eagle"""
-    clean_text = text.replace('"', '\\"').replace('\n', ' ')
+    """Génère un widget d'élocution robuste basé sur le Web Speech API, s'exécutant sur le parent de l'iframe"""
+    # Échappement propre pour s'assurer que les retours à la ligne et les guillemets ne brisent pas le JS
+    clean_text = text.replace('"', '\\"').replace("'", "\\'").replace('\n', ' ')
+    
     html_code = f"""
     <button onclick="
-        window.speechSynthesis.cancel();
-        let utterance = new SpeechSynthesisUtterance('{clean_text}');
-        utterance.lang = 'fr-FR';
-        window.speechSynthesis.speak(utterance);
+        try {{
+            var synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
+            if (synth) {{
+                synth.cancel();
+                var utterance = new SpeechSynthesisUtterance('{clean_text}');
+                utterance.lang = 'fr-FR';
+                utterance.rate = 1.0;
+                synth.speak(utterance);
+            }} else {{
+                console.error('SpeechSynthesis non accessible.');
+            }}
+        }} catch(e) {{
+            console.error('Erreur widget lecture:', e);
+        }}
     " style="
         background-color: #5551FF;
         color: white;
         border: none;
-        padding: 8px 16px;
-        border-radius: 8px;
+        padding: 10px 18px;
+        border-radius: 10px;
         cursor: pointer;
         font-weight: 600;
         margin-top: 10px;
+        font-family: sans-serif;
     ">🔊 Écouter la réponse</button>
     """
-    st.components.v1.html(html_code, height=50)
+    st.components.v1.html(html_code, height=65)
 
 # --- CALCULATEURS INFINITY (PDF DATA) ---
 def calculate_infinity_v4(ca_perso, heures_mois=48):
@@ -535,7 +564,7 @@ def main_app():
             unsafe_allow_html=True
         )
         
-        # Navigation synchronisée
+        # Navigation synchronisée d'une simplicité et d'une stabilité absolues
         nav_init = st.session_state.get('sidebar_nav_v8', "Accueil")
         if nav_init not in menu_items:
             nav_init = "Accueil"
@@ -623,6 +652,7 @@ def main_app():
                 unsafe_allow_html=True
             )
             
+            # Correction de syntaxe robuste (utilisation de ifs standards sans bloc de contexte de bouton)
             col_prev, col_spacer, col_next = st.columns([1, 4, 1])
             with col_prev:
                 if st.button("⬅️ Précédent", key="carousel_prev"):
