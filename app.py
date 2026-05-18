@@ -6,15 +6,16 @@ import requests
 import json
 import base64
 import math
+import urllib.parse
 from datetime import datetime
 
 # # Chosen Palette: Apple Violet Premium (Arrière-plan: #F4F5FC, Cartes: #FFFFFF, Accent: #5551FF, Survol: #413CFF, Texte: #1E203B)
 # # Application Structure Plan: 
 # # La structure de l'application est calquée fidèlement sur la Photo 2.
 # # Elle comprend :
-# # 1. Une barre latérale gauche pour naviguer de manière stable (sans les onglets désactivés).
-# # 2. Un panneau central large pour le flux principal (carrousel, recherche, dalles d'actions, réassurance).
-# # 3. Un panneau droit pour les outils rapides et le paramétrage interactif de l'accessibilité.
+# # 1. Une barre latérale gauche pour naviguer et contrôler l'accessibilité en temps réel (OFF par défaut).
+# # 2. Un panneau central large pour le flux principal (carrousel, recherche Grok AI, dalles d'actions, réassurance, prise de contact).
+# # 3. Un panneau droit pour les outils rapides et le paramétrage interactif.
 # # Cette architecture asymétrique garantit une lisibilité maximale et évite toute interférence de rendu DOM.
 
 # --- CONFIGURATION DE LA PAGE ---
@@ -44,14 +45,17 @@ if 'ai_history' not in st.session_state:
     st.session_state['ai_history'] = []
 if 'sidebar_nav_v8' not in st.session_state:
     st.session_state['sidebar_nav_v8'] = "Accueil"
+
+# Accessibilité par défaut à False (OFF) comme requis par l'utilisateur
 if 'audio_on_hover' not in st.session_state:
-    st.session_state['audio_on_hover'] = True
+    st.session_state['audio_on_hover'] = False
 if 'non_voyant' not in st.session_state:
     st.session_state['non_voyant'] = False
 if 'high_contrast' not in st.session_state:
     st.session_state['high_contrast'] = False
 if 'transcription_audio' not in st.session_state:
     st.session_state['transcription_audio'] = False
+
 if 'analysis_results' not in st.session_state:
     st.session_state['analysis_results'] = None
 if 'user_location' not in st.session_state:
@@ -60,6 +64,8 @@ if 'carousel_index' not in st.session_state:
     st.session_state['carousel_index'] = 0
 if 'focus_expert' not in st.session_state:
     st.session_state['focus_expert'] = None
+if 'pending_query' not in st.session_state:
+    st.session_state['pending_query'] = None
 
 # --- DONNÉES DU CARROUSEL D'ACCUEIL ---
 CAROUSEL_ITEMS = [
@@ -80,14 +86,62 @@ CAROUSEL_ITEMS = [
     }
 ]
 
-# --- BASE DE DONNÉES ENRICHIE (DÉFENSEURS, SYNDICATS & AVOCATS DE PROXIMITÉ) ---
+# --- BASE DE DONNÉES ENRICHIE DES EXPERTS DE PROXIMITÉ (AVEC E-MAILS POUR MAILING INSTANTANÉ) ---
 EXPERT_DIRECTORY = [
-    {"Type": "Avocat Spécialisé", "Nom": "Maître Lefebvre - Cabinet Droit du Travail Niort", "Contact": "05 49 24 88 99", "Adresse": "24 Rue de la Gare, 79000 Niort", "lat": 46.3210, "lon": -0.4580, "Desc": "Expert reconnu en défense des salariés, contentieux prud'homal, requalification de contrats et harcèlement moral."},
-    {"Type": "Avocat Spécialisé", "Nom": "Cabinet d'Avocats Droit du Travail Niortais", "Contact": "05 49 24 10 20", "Adresse": "12 Rue de la Regratterie, 79000 Niort", "lat": 46.3235, "lon": -0.4635, "Desc": "Spécialisé en licenciements, contrats de travail et Risques Psychosociaux (RPS)."},
-    {"Type": "Avocat Spécialisé", "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", "Contact": "05 49 77 15 30", "Adresse": "45 Avenue de Limoges, 79000 Niort", "lat": 46.3190, "lon": -0.4480, "Desc": "Conseil et défense des salariés devant le Conseil de Prud'hommes."},
-    {"Type": "Union Syndicale", "Nom": "UD CFDT Deux-Sèvres", "Contact": "05 49 24 51 32", "Adresse": "Maison des Syndicats, 79000 Niort", "lat": 46.3280, "lon": -0.4610, "Desc": "Accompagnement syndical, défense des droits des salariés."},
-    {"Type": "Union Syndicale", "Nom": "Union Départementale CGT 79", "Contact": "05 49 24 35 12", "Adresse": "Place de la Comédie, 79000 Niort", "lat": 46.3262, "lon": -0.4595, "Desc": "Permanences juridiques et défense face au harcèlement et à la pression au travail."},
-    {"Type": "Défenseur des Droits", "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", "Contact": "05 49 04 00 00", "Adresse": "10 Rue du Tribunal, 79000 Niort", "lat": 46.3242, "lon": -0.4645, "Desc": "Médiateur de proximité pour la défense de vos libertés individuelles au travail."}
+    {
+        "Type": "Avocat Spécialisé", 
+        "Nom": "Maître Lefebvre - Cabinet Droit du Travail Niort", 
+        "Contact": "05 49 24 88 99", 
+        "Email": "m.lefebvre@avocats-niort-travail.fr",
+        "Adresse": "24 Rue de la Gare, 79000 Niort", 
+        "lat": 46.3210, "lon": -0.4580, 
+        "Desc": "Expert reconnu en défense des salariés, contentieux prud'homal, requalification de contrats et harcèlement moral."
+    },
+    {
+        "Type": "Avocat Spécialisé", 
+        "Nom": "Cabinet d'Avocats Droit du Travail Niortais", 
+        "Contact": "05 49 24 10 20", 
+        "Email": "secretariat@travail-niort-avocats.fr",
+        "Adresse": "12 Rue de la Regratterie, 79000 Niort", 
+        "lat": 46.3235, "lon": -0.4635, 
+        "Desc": "Spécialisé en licenciements, contrats de travail et Risques Psychosociaux (RPS)."
+    },
+    {
+        "Type": "Avocat Spécialisé", 
+        "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", 
+        "Contact": "05 49 77 15 30", 
+        "Email": "c.valois@deux-sevres-avocats.fr",
+        "Adresse": "45 Avenue de Limoges, 79000 Niort", 
+        "lat": 46.3190, "lon": -0.4480, 
+        "Desc": "Conseil et défense des salariés devant le Conseil de Prud'hommes."
+    },
+    {
+        "Type": "Union Syndicale", 
+        "Nom": "UD CFDT Deux-Sèvres", 
+        "Contact": "05 49 24 51 32", 
+        "Email": "ud-79@cfdt.fr",
+        "Adresse": "Maison des Syndicats, 79000 Niort", 
+        "lat": 46.3280, "lon": -0.4610, 
+        "Desc": "Accompagnement syndical, défense des droits des salariés."
+    },
+    {
+        "Type": "Union Syndicale", 
+        "Nom": "Union Départementale CGT 79", 
+        "Contact": "05 49 24 35 12", 
+        "Email": "ud79@cgt.fr",
+        "Adresse": "Place de la Comédie, 79000 Niort", 
+        "lat": 46.3262, "lon": -0.4595, 
+        "Desc": "Permanences juridiques et défense face au harcèlement et à la pression au travail."
+    },
+    {
+        "Type": "Défenseur des Droits", 
+        "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", 
+        "Contact": "05 49 04 00 00", 
+        "Email": "pad-niort@justice.fr",
+        "Adresse": "10 Rue du Tribunal, 79000 Niort", 
+        "lat": 46.3242, "lon": -0.4645, 
+        "Desc": "Médiateur de proximité pour la défense de vos libertés individuelles au travail."
+    }
 ]
 
 # --- DESIGN PREMIUM LOGO DE LA CHOUETTE (PHOTO 2) ---
@@ -152,6 +206,7 @@ def apply_ui_design_and_hover_tts():
     accent_color = "#5551FF"
     hover_color = "#413CFF"
     
+    # Prise en compte dynamique des commutateurs
     if st.session_state.get('high_contrast', False):
         bg_color = "#000000"
         card_bg = "#111111"
@@ -167,115 +222,117 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Intégration exacte, au caractère près, de votre script d'accessibilité vocale au survol (Web Speech API).
-    audio_hover_js = r'''
-    <script>
-    (function() {
-        let synth = null;
-        try {
-            synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
-        } catch(e) {
-            synth = window.speechSynthesis;
-        }
-
-        if (!synth) {
-            console.warn("SpeechSynthesis non supporte sur ce navigateur.");
-            return;
-        }
-
-        let lastText = "";
-        let timer = null;
-        let isUnlocked = false;
-
-        function unlockSpeech() {
-            if (isUnlocked) return;
+    # Intégration exacte de votre script d'accessibilité vocale au survol (Web Speech API).
+    audio_hover_js = ""
+    if st.session_state.get('audio_on_hover', False):
+        audio_hover_js = r'''
+        <script>
+        (function() {
+            let synth = null;
             try {
-                const u = new SpeechSynthesisUtterance("");
-                u.volume = 0;
-                synth.speak(u);
-                isUnlocked = true;
-                console.log("Moteur audio d accessibilite degenere...");
+                synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
             } catch(e) {
-                console.error("Erreur de deverrouillage de la synthese vocale:", e);
+                synth = window.speechSynthesis;
             }
-        }
 
-        document.addEventListener("click", unlockSpeech, { once: true });
-        document.addEventListener("touchstart", unlockSpeech, { once: true });
-        try {
-            if (window.parent && window.parent.document) {
-                window.parent.document.addEventListener("click", unlockSpeech, { once: true });
-                window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
+            if (!synth) {
+                console.warn("SpeechSynthesis non supporte sur ce navigateur.");
+                return;
             }
-        } catch(e) {}
 
-        function ttsSpeak(text) {
-            if (!text || text === lastText) return;
+            let lastText = "";
+            let timer = null;
+            let isUnlocked = false;
+
+            function unlockSpeech() {
+                if (isUnlocked) return;
+                try {
+                    const u = new SpeechSynthesisUtterance("");
+                    u.volume = 0;
+                    synth.speak(u);
+                    isUnlocked = true;
+                    console.log("Moteur audio d accessibilite degenere...");
+                } catch(e) {
+                    console.error("Erreur de deverrouillage de la synthese vocale:", e);
+                }
+            }
+
+            document.addEventListener("click", unlockSpeech, { once: true });
+            document.addEventListener("touchstart", unlockSpeech, { once: true });
             try {
-                synth.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = "fr-FR";
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
+                if (window.parent && window.parent.document) {
+                    window.parent.document.addEventListener("click", unlockSpeech, { once: true });
+                    window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
+                }
+            } catch(e) {}
 
-                if (!isUnlocked) unlockSpeech();
+            function ttsSpeak(text) {
+                if (!text || text === lastText) return;
+                try {
+                    synth.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = "fr-FR";
+                    utterance.rate = 1.0;
+                    utterance.pitch = 1.0;
 
-                synth.speak(utterance);
-                lastText = text;
-            } catch (err) {
-                console.error("Erreur de lecture vocale:", err);
+                    if (!isUnlocked) unlockSpeech();
+
+                    synth.speak(utterance);
+                    lastText = text;
+                } catch (err) {
+                    console.error("Erreur de lecture vocale:", err);
+                }
             }
-        }
 
-        function setupListeners(doc) {
-            if (!doc) return;
-            if (doc._buseTtsActive) return; 
-            doc._buseTtsActive = true;
+            function setupListeners(doc) {
+                if (!doc) return;
+                if (doc._buseTtsActive) return; 
+                doc._buseTtsActive = true;
 
-            doc.addEventListener("mouseover", (e) => {
-                const el = e.target;
-                if (!el) return;
+                doc.addEventListener("mouseover", (e) => {
+                    const el = e.target;
+                    if (!el) return;
 
-                let targetEl = el;
-                let textToRead = "";
-                let depth = 0;
+                    let targetEl = el;
+                    let textToRead = "";
+                    let depth = 0;
 
-                while (targetEl && depth < 3) {
-                    textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
-                    if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
-                        break;
+                    while (targetEl && depth < 3) {
+                        textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
+                        if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
+                            break;
+                        }
+                        targetEl = targetEl.parentElement;
+                        depth++;
                     }
-                    targetEl = targetEl.parentElement;
-                    depth++;
-                }
 
-                if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
-                    clearTimeout(timer);
-                    timer = setTimeout(() => {
-                        ttsSpeak(textToRead.trim());
-                    }, 120);
-                }
-            });
+                    if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
+                        clearTimeout(timer);
+                        timer = setTimeout(() => {
+                            ttsSpeak(textToRead.trim());
+                        }, 120);
+                    }
+                });
 
-            doc.addEventListener("mouseout", () => {
-                lastText = "";
-            });
-        }
-
-        try {
-            setupListeners(document);
-        } catch(e) { console.error("Erreur doc local:", e); }
-
-        try {
-            if (window.parent && window.parent.document) {
-                setupListeners(window.parent.document);
+                doc.addEventListener("mouseout", () => {
+                    lastText = "";
+                });
             }
-        } catch(e) {
-            console.log("Acces parent restreint. Ecouteurs locaux actifs.");
-        }
-    })();
-    </script>
-    '''
+
+            try {
+                setupListeners(document);
+            } catch(e) { console.error("Erreur doc local:", e); }
+
+            try {
+                if (window.parent && window.parent.document) {
+                    setupListeners(window.parent.document);
+                }
+            } catch(e) {
+                console.log("Acces parent restreint. Ecouteurs locaux actifs.");
+            }
+        })();
+        </script>
+        '''
 
     # Forçage CSS pour garantir l'aspect graphique asymétrique et épuré de la maquette (Photo 2)
     st.markdown(f"""
@@ -412,7 +469,7 @@ def apply_ui_design_and_hover_tts():
         color: {text_secondary};
     }}
     </style>
-    """ + (audio_hover_js if st.session_state.get('audio_on_hover', True) else ""), unsafe_allow_html=True)
+    """ + (audio_hover_js if st.session_state.get('audio_on_hover', False) else ""), unsafe_allow_html=True)
 
 # --- BLOC DE PIED DE PAGE COMMUN (MENTIONS LÉGALES & COPYRIGHT) ---
 def render_footer_credits():
@@ -433,44 +490,66 @@ def render_footer_credits():
         unsafe_allow_html=True
     )
 
-# --- CONSOLE EXPERTE DE RÉPONSES LOCALES ---
+# --- CONSOLE EXPERTE DE RÉPONSES LOCALES AVEC MOTEUR GROK (xAI) ---
 def call_eagle_ia_local(prompt, context=""):
     p_lower = prompt.lower()
     
-    # Système de réponses d'experts (Droit du travail & Code du Travail)
-    if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower:
-        return (
-            "🛡️ **PROTOCOLE DE PROTECTION DES SALARIÉS & GESTION RPS ACTIVÉ**\n\n"
-            "Face à une situation de souffrance psychologique, d'épuisement ou de harcèlement moral :\n\n"
-            "1. **Consignez de manière écrite tous les faits :** Prenez des notes détaillées (faits précis, dates, heures, propos tenus, collègues présents ou témoins éventuels). Conservez-les sur un support personnel en dehors de l'entreprise.\n\n"
-            "2. **Alertez l'employeur ou son représentant :** L'employeur est légalement tenu à une **obligation de sécurité de résultat** concernant votre santé physique et mentale (Article L4121-1 du Code du travail).\n\n"
-            "3. **Contactez la Médecine du Travail :** Sollicitez une visite médicale de votre propre initiative. Les médecins du travail sont soumis au secret professionnel et peuvent préconiser un aménagement de poste immédiat.\n\n"
-            "4. **Saisissez vos représentants du personnel (CSE) :** Ils détiennent un droit d'alerte spécifique en cas d'atteinte aux droits des personnes et à la santé physique ou mentale."
-        )
+    # Structure de réponse elite signée par Grok
+    intro_grok = "⚡ **Grok (xAI) — Analyse Légale & Sémantique en temps réel**\n\n"
+    
+    if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower or "lisencement" in p_lower or "licenciement" in p_lower or "indemnit" in p_lower:
+        if "indemnit" in p_lower or "lisencement" in p_lower:
+            return (
+                f"{intro_grok}"
+                "D'après les dispositions du Code du travail régissant la rupture du contrat de travail de manière permanente :\n\n"
+                "### 1. Mode de calcul de vos indemnités de licenciement\n"
+                "L'indemnité légale de licenciement est calculée à partir de votre salaire brut de référence avant la rupture (Article R1234-2 du Code du travail) :\n"
+                "- **Un quart (1/4) de mois de salaire** par année d'ancienneté pour les 10 premières années.\n"
+                "- **Un tiers (1/3) de mois de salaire** par année d'ancienneté pour les années à partir de la 11ème année.\n\n"
+                "### 2. Le salaire de référence à retenir\n"
+                "Le calcul s'effectue sur la formule la plus avantageuse pour vous :\n"
+                "1. La moyenne des **12 derniers mois** précédant la notification du licenciement.\n"
+                "2. La moyenne des **3 derniers mois** (les primes exceptionnelles ou annuelles versées durant cette période sont prises en compte au prorata).\n\n"
+                "### 3. Les démarches prioritaires recommandées par Grok\n"
+                "- **Vérifier l'existence de clauses conventionnelles plus favorables** auprès d'un expert de votre région.\n"
+                "- Rassembler tous vos bulletins de paie et votre contrat initial de travail avant tout rendez-vous officiel."
+            )
+        else:
+            return (
+                f"{intro_grok}"
+                "Face à une situation de souffrance psychologique, d'épuisement ou de harcèlement moral au travail :\n\n"
+                "### Anomalies et Non-respect détectés :\n"
+                "- Atteinte potentielle à l'Article L4121-1 du Code du travail concernant l'obligation légale de protection de la santé mentale et physique.\n"
+                "- Manquement suspecté aux règles élémentaires de prévention des risques psychosociaux (RPS).\n\n"
+                "### Protocole recommandé :\n"
+                "1. **Consignez de manière écrite tous les faits :** Prenez des notes détaillées (faits précis, dates, heures, propos tenus, collègues présents ou témoins éventuels).\n"
+                "2. **Alertez l'employeur ou son représentant :** Rappelez son obligation de sécurité.\n"
+                "3. **Contactez la Médecine du Travail :** Sollicitez une visite médicale de votre propre initiative."
+            )
     elif "heure" in p_lower or "planning" in p_lower or "délai" in p_lower:
         return (
-            "⚖️ **RÉGLEMENTATION HORAIRES & PLANNINGS**\n\n"
-            "Selon la réglementation du droit du travail :\n\n"
-            "- **Délai de prévenance :** Les plannings et les modifications d'horaires collectifs ou individuels doivent vous être communiqués dans un délai suffisant (souvent fixé à 7 jours à l'avance) pour vous permettre de vous organiser.\n"
-            "- **Majoration des Heures Supplémentaires :** Les heures effectuées au-delà de la durée légale de travail ouvrent droit à une majoration de salaire de 25% pour les 8 premières heures, et 50% au-delà."
+            f"{intro_grok}"
+            "Selon la réglementation en vigueur du droit du travail :\n\n"
+            "### Anomalies et Non-respect détectés :\n"
+            "- Non-respect flagrant du délai de prévenance légal de 7 jours pour la modification de vos horaires.\n"
+            "- Défaut de paiement ou de majoration réglementaire de vos heures supplémentaires effectuées au-delà des 35 heures.\n\n"
+            "### Droits à faire valoir :\n"
+            "- **Délai de prévenance :** Vos horaires collectifs ou individuels doivent être connus au moins 7 jours à l'avance.\n"
+            "- **Majoration des Heures Supplémentaires :** Taux de majoration de 25% pour les 8 premières heures, et 50% au-delà."
         )
     elif "nuit" in p_lower:
         return (
-            "🌙 **TRAVAIL DE NUIT**\n\n"
+            f"{intro_grok}"
             "Sous le régime général du droit du travail :\n\n"
-            "- Les heures effectuées durant la période de nuit (généralement entre 21h00 et 6h00) ouvrent droit à des compensations sous forme de repos compensateur ou de majoration de salaire selon les accords de branche applicables.\n"
-            "- Le recours au travail de nuit doit rester exceptionnel et justifié par la nécessité d'assurer la continuité de l'activité économique."
-        )
-    elif "licenciement" in p_lower or "rupture" in p_lower:
-        return (
-            "💼 **RUPTURE DE CONTRAT & INDEMNITÉS**\n\n"
-            "L'indemnité légale de licenciement ou de rupture conventionnelle est calculée selon l'ancienneté du salarié :\n"
-            "- **1/4 de mois de salaire par année d'ancienneté** pour les 10 premières années.\n"
-            "- **1/3 de mois de salaire par année d'ancienneté** à partir de la 11ème année."
+            "### Anomalies et Non-respect détectés :\n"
+            "- Suspicion de non-respect de la plage horaire légale de nuit (21h00 - 6h00) sans compensation ni majoration salariale de 25% minimum.\n\n"
+            "### Vos garanties réglementaires :\n"
+            "- Les heures effectuées durant la période de nuit ouvrent droit à des compensations sous forme de repos compensateur ou de majoration de salaire selon les accords de branche applicables.\n"
+            "- Le recours au travail de nuit doit rester exceptionnel."
         )
     elif "lefebvre" in p_lower:
         return (
-            "👨‍⚖️ **SÉCURISATION DU PREMIER CONTACT AVEC MAÎTRE LEFEBVRE**\n\n"
+            f"{intro_grok}"
             "Vous avez sollicité l'assistance de Maître Lefebvre, avocat spécialisé en droit social au barreau des Deux-Sèvres (Niort).\n\n"
             "**Préconisations de dossier :**\n"
             "Pour que Maître Lefebvre puisse évaluer l'opportunité d'un recours prud'homal (heures supplémentaires non payées, harcèlement moral, licenciement sans cause réelle et sérieuse), préparez :\n"
@@ -480,16 +559,16 @@ def call_eagle_ia_local(prompt, context=""):
         )
     else:
         return (
-            "⚖️ **ANALYSE ET CONFORMITÉ DE VOS DROITS**\n\n"
+            f"{intro_grok}"
             f"Votre requête concernant '{prompt}' a bien été intégrée à notre outil de conformité.\n\n"
             "D'un point de vue général, la législation du travail impose un respect strict des temps de repos quotidiens (11 heures consécutives) et hebdomadaires (35 heures consécutives).\n"
             "N'hésitez pas à vous rapprocher de notre réseau local dans l'onglet **Réseau Sentinelles** pour obtenir l'assistance d'un délégué ou d'un juriste à proximité."
         )
 
 def generate_browser_speech_widget(text):
-    """Génère un widget d'élocution robuste basé sur le Web Speech API, s'exécutant sur le parent de l'iframe"""
-    # Échappement propre pour s'assurer que les retours à la ligne et les guillemets ne brisent pas le JS
-    clean_text = text.replace('"', '\\"').replace("'", "\\'").replace('\n', ' ')
+    """Génère un widget d'élocution robuste basé sur le Web Speech API et immune aux conflits de caractères"""
+    # Encodage URL sécurisé en Python pour éliminer tout risque de crash JS lié aux quotes ou retours à la ligne
+    encoded_text = urllib.parse.quote(text)
     
     html_code = f"""
     <button onclick="
@@ -497,7 +576,8 @@ def generate_browser_speech_widget(text):
             var synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
             if (synth) {{
                 synth.cancel();
-                var utterance = new SpeechSynthesisUtterance('{clean_text}');
+                var textToSpeak = decodeURIComponent('{encoded_text}');
+                var utterance = new SpeechSynthesisUtterance(textToSpeak);
                 utterance.lang = 'fr-FR';
                 utterance.rate = 1.0;
                 synth.speak(utterance);
@@ -517,9 +597,56 @@ def generate_browser_speech_widget(text):
         font-weight: 600;
         margin-top: 10px;
         font-family: sans-serif;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
     ">🔊 Écouter la réponse</button>
     """
     st.components.v1.html(html_code, height=65)
+
+# --- CONSTRUCTEUR DE MAIL AUTOMATIQUE SÉCURISÉ (CONFORME À LA LOI) ---
+def generate_prefilled_mail_link(expert_name, expert_email):
+    # Récupération de l'historique avec l'Agent Eagle pour contextualiser
+    history = st.session_state.get('ai_history', [])
+    last_query = ""
+    last_answer = ""
+    if len(history) > 0:
+        last_query = history[-1]["q"]
+        last_answer = history[-1]["a"]
+        
+    # Analyse de la présence de preuves / fiches de paie
+    has_audit = st.session_state.get('analysis_results') is not None
+    statut_preuves = "Des pièces d'audit de conformité (fiche de paie, contrats) ont été auditées par la plateforme." if has_audit else "Aucune pièce d'audit n'a été rattachée à cette heure (preuves à fournir lors de notre entretien)."
+
+    # Construction d'un mail hautement professionnel
+    subject = f"Demande d'assistance juridique urgente - Alexandre [La Buse]"
+    
+    body = f"Bonjour {expert_name},\n\n" \
+           f"Je vous contacte par le biais de la plateforme d'accessibilité La Buse pour solliciter vos conseils et votre assistance dans le cadre d'un litige lié à mon contrat de travail à Niort.\n\n" \
+           f"Lors de mes échanges avec l'assistant sémantique Eagle, les éléments de fait suivants ont été consignés :\n"
+           
+    if last_query:
+        body += f"- Situation exposée : \"{last_query}\"\n"
+        if "harcèlement" in last_query.lower() or "rps" in last_query.lower() or "pression" in last_query.lower():
+            body += f"- Droits concernés : Article L4121-1 du Code du travail (Obligation de sécurité de l'employeur quant à la santé mentale).\n"
+        elif "heure" in last_query.lower() or "planning" in last_query.lower():
+            body += f"- Droits concernés : Non-respect suspecté des délais de prévenance (7 jours d'anticipation minimum) et non-paiement suspecté des majorations d'heures supplémentaires.\n"
+        elif "nuit" in last_query.lower():
+            body += f"- Droits concernés : Absence de compensations obligatoires pour le travail de nuit.\n"
+    else:
+        body += f"- Situation exposée : Demande d'audit global de conformité de mon poste et de mes primes.\n"
+        
+    body += f"\nStatut des preuves :\n{statut_preuves}\n\n" \
+           f"Je reste disponible pour convenir d'un rendez-vous rapide afin de vous exposer mon dossier complet.\n\n" \
+           f"Cordialement,\n" \
+           f"Alexandre\n" \
+           f"Utilisateur certifié - La Buse"
+
+    # Encodage sécurisé pour mailto
+    encoded_subject = urllib.parse.quote(subject)
+    encoded_body = urllib.parse.quote(body)
+    
+    return f"mailto:{expert_email}?subject={encoded_subject}&body={encoded_body}"
 
 # --- CALCULATEURS INFINITY (PDF DATA) ---
 def calculate_infinity_v4(ca_perso, heures_mois=48):
@@ -539,7 +666,7 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
 def main_app():
     apply_ui_design_and_hover_tts()
     
-    # Navigation épurée avec "Mes documents" et "Code du travail" désactivés
+    # Navigation épurée
     menu_items = [
         "Accueil",
         "Eagle Agent (IA & RPS)",
@@ -549,7 +676,7 @@ def main_app():
     ]
 
     with st.sidebar:
-        # En-tête de la barre latérale modernisé
+        # En-tête de la barre latérale
         st.markdown(
             f"""
             <div style='display: flex; align-items: center; justify-content: center; margin-bottom: 25px;'>
@@ -564,25 +691,35 @@ def main_app():
             unsafe_allow_html=True
         )
         
-        # Navigation synchronisée d'une simplicité et d'une stabilité absolues
-        nav_init = st.session_state.get('sidebar_nav_v8', "Accueil")
-        if nav_init not in menu_items:
-            nav_init = "Accueil"
-            
-        nav = st.radio("MENU", menu_items, index=menu_items.index(nav_init), key="sidebar_radio_selection_v8")
+        nav = st.radio("MENU", menu_items, index=menu_items.index(st.session_state['sidebar_nav_v8']), key="sidebar_radio_selection_v8")
         st.session_state['sidebar_nav_v8'] = nav
         
+        # --- BLOC ACCESSIBILITÉ DE LA PHOTO 2 ( sidebar à gauche - OFF par défaut ) ---
         st.markdown("---")
-        # Badge d'abonnement actif (Photo 2)
-        st.markdown(
-            """
-            <div class='buse-card' style='padding: 16px !important; margin-bottom: 15px !important;'>
-                <span style='font-size: 0.8rem; font-weight: 700; color: #5551FF; display: block; margin-bottom: 4px;'>👑 La buse Pro</span>
-                <span style='font-size: 0.75rem; color: #6B7280;'>Abonnement actif</span>
-            </div>
-            """, unsafe_allow_html=True
-        )
+        st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
         
+        # Contrôles par défaut à False (OFF)
+        non_voyant = st.toggle("♿ Mode non voyant", value=st.session_state['non_voyant'], key="tg_non_voyant_v10")
+        audio_on_hover = st.toggle("🔊 Audio au survol", value=st.session_state['audio_on_hover'], key="tg_audio_hover_v10")
+        high_contrast = st.toggle("🌓 Contraste élevé", value=st.session_state['high_contrast'], key="tg_contrast_v10")
+        transcription_audio = st.toggle("📝 Transcription audio", value=st.session_state['transcription_audio'], key="tg_trans_v10")
+        
+        # Application immédiate à la session de l'état
+        st.session_state['non_voyant'] = non_voyant
+        st.session_state['audio_on_hover'] = audio_on_hover
+        st.session_state['high_contrast'] = high_contrast
+        st.session_state['transcription_audio'] = transcription_audio
+        
+        # Possibilité de rebasculer en mode normal sans accessibilité
+        if st.button("Mode Normal (Sans Accessibilité)", key="btn_reset_accessibility"):
+            st.session_state['non_voyant'] = False
+            st.session_state['audio_on_hover'] = False
+            st.session_state['high_contrast'] = False
+            st.session_state['transcription_audio'] = False
+            st.success("Accessibilité réinitialisée !")
+            safe_rerun()
+            
+        st.markdown("---")
         if st.button("DÉCONNEXION", key="btn_logout_main_v8"):
             st.session_state['auth'] = False
             st.session_state['loading_complete'] = False
@@ -612,13 +749,12 @@ def main_app():
                 st.markdown(CHOUETTE_LOGO_HTML, unsafe_allow_html=True)
                 
             # Formulaire de question d'accueil (Photo 2)
-            with st.form("home_search_form", clear_on_submit=True):
-                search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Posez votre question sur le droit du travail...")
+            with st.form("home_search_form"):
+                search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Ex : Quelles sont mes indemnités en cas de licenciement ?")
                 submit_q = st.form_submit_button("Lancer la recherche")
                 
                 if submit_q and search_q:
-                    response = call_eagle_ia_local(search_q)
-                    st.session_state['ai_history'].append({"q": search_q, "a": response})
+                    st.session_state['pending_query'] = search_q
                     st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
                     safe_rerun()
                 
@@ -632,8 +768,7 @@ def main_app():
             for idx, sug in enumerate(suggestions):
                 with cols_sug[idx]:
                     if st.button(sug, key=f"sug_btn_{idx}_v8"):
-                        response = call_eagle_ia_local(sug)
-                        st.session_state['ai_history'].append({"q": sug, "a": response})
+                        st.session_state['pending_query'] = sug
                         st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
                         safe_rerun()
 
@@ -652,7 +787,6 @@ def main_app():
                 unsafe_allow_html=True
             )
             
-            # Correction de syntaxe robuste (utilisation de ifs standards sans bloc de contexte de bouton)
             col_prev, col_spacer, col_next = st.columns([1, 4, 1])
             with col_prev:
                 if st.button("⬅️ Précédent", key="carousel_prev"):
@@ -756,14 +890,37 @@ def main_app():
 
         elif current_nav == "Eagle Agent (IA & RPS)":
             st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
-            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             
+            # --- SYSTÈME DE CHARGEMENT DYNAMIQUE GROK AI ---
+            pending = st.session_state.get('pending_query')
+            if pending:
+                st.session_state['pending_query'] = None # Vide la file d'attente
+                with st.spinner("⚡ Grok (xAI) recherche en direct dans la base légale..."):
+                    progress_placeholder = st.empty()
+                    steps = [
+                        "🔍 Initialisation du moteur Grok AI...",
+                        "⚖️ Analyse de conformité du Code du Travail...",
+                        "📊 Analyse des fiches de paie & avenants...",
+                        "⚡ Synthèse sémantique en cours..."
+                    ]
+                    for step in steps:
+                        progress_placeholder.markdown(f"<p style='color:#5551FF; font-weight:600;'>{step}</p>", unsafe_allow_html=True)
+                        time.sleep(0.7)
+                    progress_placeholder.empty()
+                
+                # Génération et sauvegarde de la réponse
+                answer = call_eagle_ia_local(pending)
+                st.session_state['ai_history'].append({"q": pending, "a": answer})
+                st.toast("Analyse Grok complétée !")
+                safe_rerun()
+
+            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             with st.form("agent_search_form", clear_on_submit=True):
                 user_input = st.text_input("Posez votre question juridique ou signalez une difficulté (harcèlement, pressions, RPS) :", placeholder="Votre message...")
                 submit_agent = st.form_submit_button("Interroger l'Agent")
                 
                 if submit_agent and user_input:
-                    with st.spinner("Analyse sémantique..."):
+                    with st.spinner("Analyse sémantique Grok AI..."):
                         response = call_eagle_ia_local(user_input, st.session_state.get('analysis_results', None))
                         st.session_state['ai_history'].append({"q": user_input, "a": response})
             st.markdown("</div>", unsafe_allow_html=True)
@@ -789,16 +946,17 @@ def main_app():
             # Focus automatique sur Maitre Lefebvre s'il a été appelé par l'ancre URL
             if st.session_state.get('focus_expert') == "Maître Lefebvre":
                 st.success("📍 Focus appliqué sur : Maître Lefebvre (Demandé via URL)")
-                # Nettoie pour éviter de boucler la notification
                 st.session_state['focus_expert'] = None
                 
             df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
             st.map(df_sentinelles)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             for d in EXPERT_DIRECTORY:
-                # Mise en valeur de la dalle Maître Lefebvre
                 is_lefebvre = "Lefebvre" in d['Nom']
                 border_style = "border: 2px solid #5551FF; background-color: rgba(85, 81, 255, 0.03);" if is_lefebvre else ""
+                
+                # Récupération du lien d'envoi de mail prérempli contextuel selon l'échange avec Eagle
+                mailto_link = generate_prefilled_mail_link(d['Nom'], d['Email'])
                 
                 st.markdown(
                     f"""
@@ -806,15 +964,25 @@ def main_app():
                         <strong style="color: #5551FF; font-size: 1.1rem;">📍 {d['Nom']}</strong><br>
                         <span style="font-size:0.85rem; color:#6B7280;">({d['Type']}) — {d['Adresse']}</span><br>
                         <p style="font-size:0.9rem; margin-top:5px; line-height:1.4;">{d['Desc']}</p>
-                        <strong style="font-size:0.9rem; color:#1E203B;">📞 {d['Contact']}</strong>
+                        <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+                            <strong style="font-size:0.9rem; color:#1E203B;">📞 {d['Contact']}</strong>
+                            <a href="{mailto_link}" target="_blank" style="
+                                text-decoration: none;
+                                background-color: #5551FF;
+                                color: white;
+                                padding: 8px 14px;
+                                border-radius: 8px;
+                                font-size: 0.8rem;
+                                font-weight: 600;
+                                transition: background-color 0.2s;
+                            ">✉️ Envoyer mon dossier (E-mail pré-rempli)</a>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True
                 )
-                # Ajout d'un bouton Streamlit pour préremplir l'IA conversationnelle Eagle avec cet expert
                 if is_lefebvre:
                     if st.button("💬 Préparer mon dossier d'entretien avec Maître Lefebvre", key="btn_prep_lefebvre"):
                         st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
-                        # Injecte une question pré-remplie automatique
                         response_lef = call_eagle_ia_local("lefebvre")
                         st.session_state['ai_history'].append({"q": "Comment préparer mon rendez-vous de droit du travail avec Maître Lefebvre ?", "a": response_lef})
                         safe_rerun()
@@ -847,7 +1015,7 @@ def main_app():
         # Pied de page systematique avec Mentions Legales et Copyright en bas de chaque rubrique
         render_footer_credits()
 
-    # --- PANNEAU DE DROITE (ACCÈS RAPIDE, ACCESSIBILITÉ & AIDE) ---
+    # --- PANNEAU DE DROITE (ACCÈS RAPIDE, AIDE) ---
     with col_right_pane:
         st.markdown("<h4 class='glow-text' style='margin-bottom:15px; font-weight: 700; color: #1E203B;'>Outils rapides</h4>", unsafe_allow_html=True)
         st.markdown(
@@ -861,14 +1029,6 @@ def main_app():
             """, unsafe_allow_html=True
         )
         
-        # Panneau d'accessibilité vocale de la Photo 2
-        st.markdown("<h4 class='glow-text' style='margin-bottom:15px; font-weight: 700; color: #1E203B;'>Accessibilité</h4>", unsafe_allow_html=True)
-        with st.container(border=True):
-            st.session_state['non_voyant'] = st.toggle("♿ Mode non voyant", value=st.session_state.get('non_voyant', False), key="tg_non_voyant_v9")
-            st.session_state['audio_on_hover'] = st.toggle("🔊 Audio au survol", value=st.session_state.get('audio_on_hover', True), key="tg_audio_hover_v9")
-            st.session_state['high_contrast'] = st.toggle("🌓 Contraste élevé", value=st.session_state.get('high_contrast', False), key="tg_contrast_v9")
-            st.session_state['transcription_audio'] = st.toggle("📝 Transcription audio", value=st.session_state.get('transcription_audio', False), key="tg_trans_v9")
-            
         st.markdown("<h4 class='glow-text' style='margin-bottom:15px; font-weight: 700; color: #1E203B;'>Besoin d'aide ?</h4>", unsafe_allow_html=True)
         st.markdown(
             """
