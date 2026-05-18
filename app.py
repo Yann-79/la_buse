@@ -156,7 +156,7 @@ def apply_ui_design_and_hover_tts():
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
-        <img src="x" onerror="(function() {
+        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror="(function() {
             let synth = null;
             try {
                 synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
@@ -180,7 +180,7 @@ def apply_ui_design_and_hover_tts():
                     u.volume = 0;
                     synth.speak(u);
                     isUnlocked = true;
-                    console.log('Moteur audio d\'accessibilité déverrouillé.');
+                    console.log('Moteur audio d\\'accessibilité déverrouillé.');
                 } catch(e) {
                     console.error('Erreur de déverrouillage de la synthèse vocale:', e);
                 }
