@@ -153,10 +153,11 @@ def apply_ui_design_and_hover_tts():
         sidebar_text_color = "#1E203B"
 
     # Injection robuste et sécurisée via gestion d'erreur d'image (Bypasse le bac à sable de Streamlit / CORS)
+    # Garantit qu'aucune apostrophe libre ne brise l'attribut HTML onerror.
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
-        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror="(function() {
+        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror='(function() {
             let synth = null;
             try {
                 synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
@@ -165,33 +166,33 @@ def apply_ui_design_and_hover_tts():
             }
 
             if (!synth) {
-                console.warn(`SpeechSynthesis non supporté sur ce navigateur.`);
+                console.warn("SpeechSynthesis non supporte sur ce navigateur.");
                 return;
             }
 
-            let lastText = ``;
+            let lastText = "";
             let timer = null;
             let isUnlocked = false;
 
             function unlockSpeech() {
                 if (isUnlocked) return;
                 try {
-                    const u = new SpeechSynthesisUtterance(``);
+                    const u = new SpeechSynthesisUtterance("");
                     u.volume = 0;
                     synth.speak(u);
                     isUnlocked = true;
-                    console.log(`Moteur audio d'accessibilité déverrouillé.`);
+                    console.log("Moteur audio d accessibilite degenere...");
                 } catch(e) {
-                    console.error(`Erreur de déverrouillage de la synthèse vocale:`, e);
+                    console.error("Erreur de deverrouillage de la synthese vocale:", e);
                 }
             }
 
-            document.addEventListener(`click`, unlockSpeech, { once: true });
-            document.addEventListener(`touchstart`, unlockSpeech, { once: true });
+            document.addEventListener("click", unlockSpeech, { once: true });
+            document.addEventListener("touchstart", unlockSpeech, { once: true });
             try {
                 if (window.parent && window.parent.document) {
-                    window.parent.document.addEventListener(`click`, unlockSpeech, { once: true });
-                    window.parent.document.addEventListener(`touchstart`, unlockSpeech, { once: true });
+                    window.parent.document.addEventListener("click", unlockSpeech, { once: true });
+                    window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
                 }
             } catch(e) {}
 
@@ -200,7 +201,7 @@ def apply_ui_design_and_hover_tts():
                 try {
                     synth.cancel();
                     const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = `fr-FR`;
+                    utterance.lang = "fr-FR";
                     utterance.rate = 1.0;
                     utterance.pitch = 1.0;
 
@@ -209,7 +210,7 @@ def apply_ui_design_and_hover_tts():
                     synth.speak(utterance);
                     lastText = text;
                 } catch (err) {
-                    console.error(`Erreur de lecture vocale:`, err);
+                    console.error("Erreur de lecture vocale:", err);
                 }
             }
 
@@ -218,17 +219,17 @@ def apply_ui_design_and_hover_tts():
                 if (doc._buseTtsActive) return; 
                 doc._buseTtsActive = true;
 
-                doc.addEventListener(`mouseover`, (e) => {
+                doc.addEventListener("mouseover", (e) => {
                     const el = e.target;
                     if (!el) return;
 
                     let targetEl = el;
-                    let textToRead = ``;
+                    let textToRead = "";
                     let depth = 0;
 
                     while (targetEl && depth < 3) {
-                        textToRead = targetEl.getAttribute(`data-tts`) || targetEl.innerText || targetEl.textContent;
-                        if (targetEl.matches(`h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid="stMarkdownContainer"]`)) {
+                        textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
+                        if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=\\"stMarkdownContainer\\"]")) {
                             break;
                         }
                         targetEl = targetEl.parentElement;
@@ -243,23 +244,23 @@ def apply_ui_design_and_hover_tts():
                     }
                 });
 
-                doc.addEventListener(`mouseout`, () => {
-                    lastText = ``;
+                doc.addEventListener("mouseout", () => {
+                    lastText = "";
                 });
             }
 
             try {
                 setupListeners(document);
-            } catch(e) { console.error(`Erreur doc local:`, e); }
+            } catch(e) { console.error("Erreur doc local:", e); }
 
             try {
                 if (window.parent && window.parent.document) {
                     setupListeners(window.parent.document);
                 }
             } catch(e) {
-                console.log(`Accès parent restreint (CORS). Écouteurs locaux actifs.`);
+                console.log("Acces parent restreint. Ecouteurs locaux actifs.");
             }
-        })()" style="display:none;">
+        })()' style="display:none;">
         """
 
     # Forçage CSS pour garantir une visibilité totale de la sidebar et des éléments (Plus d'invisibilité)
@@ -502,15 +503,8 @@ def main_app():
             unsafe_allow_html=True
         )
         
-        # Routage robuste basé sur la valeur et non l'index
-        nav_init = st.session_state.get('sidebar_nav_v8', "Accueil")
-        if nav_init not in menu_items:
-            nav_init = "Accueil"
-            
-        nav = st.radio("MENU", menu_items, index=menu_items.index(nav_init), key="sidebar_radio_selection_v8")
-        
-        # Met à jour la variable d'état
-        st.session_state['sidebar_nav_v8'] = nav
+        # Navigation synchronisée d'une simplicité et d'une stabilité absolues
+        nav = st.radio("MENU", menu_items, key="sidebar_nav_v8")
         
         st.markdown("---")
         st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
@@ -522,6 +516,7 @@ def main_app():
         if st.button("DÉCONNEXION", key="btn_logout_main_v8"):
             st.session_state['auth'] = False
             st.session_state['loading_complete'] = False
+            st.session_state['sidebar_nav_v8'] = "Accueil"
             st.rerun()
 
     # --- ARCHITECTURE PAR DIVISION ASYMÉTRIQUE (Photo 2) ---
