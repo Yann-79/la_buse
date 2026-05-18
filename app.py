@@ -152,7 +152,7 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Script JavaScript exact de synthèse vocale au survol (Web Speech API) fourni par l'utilisateur
+    # Intégration exacte du script d'accessibilité vocale au survol de l'utilisateur
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
