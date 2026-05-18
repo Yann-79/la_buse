@@ -35,29 +35,29 @@ def safe_rerun():
     except AttributeError:
         st.experimental_rerun()
 
-# --- INITIALISATION DE L'ÉTAT DE SESSION ---
+# --- INITIALISATION SÉCURISÉE DE L'ÉTAT DE SESSION ---
 if 'auth' not in st.session_state:
-    st.session_state.auth = False
+    st.session_state['auth'] = False
 if 'loading_complete' not in st.session_state:
-    st.session_state.loading_complete = False
+    st.session_state['loading_complete'] = False
 if 'ai_history' not in st.session_state:
-    st.session_state.ai_history = []
-if 'sidebar_nav_v8' not in st.session_state:
-    st.session_state.sidebar_nav_v8 = "Accueil"
+    st.session_state['ai_history'] = []
+if 'menu_index' not in st.session_state:
+    st.session_state['menu_index'] = 0
 if 'audio_on_hover' not in st.session_state:
-    st.session_state.audio_on_hover = True  # Activé d'office pour résoudre le souci de lecture
+    st.session_state['audio_on_hover'] = True
 if 'non_voyant' not in st.session_state:
-    st.session_state.non_voyant = False
+    st.session_state['non_voyant'] = False
 if 'high_contrast' not in st.session_state:
-    st.session_state.high_contrast = False
+    st.session_state['high_contrast'] = False
 if 'transcription_audio' not in st.session_state:
-    st.session_state.transcription_audio = False
+    st.session_state['transcription_audio'] = False
 if 'analysis_results' not in st.session_state:
-    st.session_state.analysis_results = None
+    st.session_state['analysis_results'] = None
 if 'user_location' not in st.session_state:
-    st.session_state.user_location = {"lat": 46.3833, "lon": -0.4500}  # Niort / Saint-Maxire
+    st.session_state['user_location'] = {"lat": 46.3833, "lon": -0.4500}
 if 'carousel_index' not in st.session_state:
-    st.session_state.carousel_index = 0
+    st.session_state['carousel_index'] = 0
 
 # --- BASE DE DONNÉES ENRICHIE (DÉFENSEURS, SYNDICATS & AVOCATS DE PROXIMITÉ) ---
 EXPERT_DIRECTORY = [
@@ -137,7 +137,7 @@ def apply_ui_design_and_hover_tts():
     accent_color = "#5551FF"
     hover_color = "#413CFF"
     
-    if st.session_state.high_contrast:
+    if st.session_state.get('high_contrast', False):
         bg_color = "#000000"
         card_bg = "#111111"
         text_primary = "#FFFFFF"
@@ -154,7 +154,7 @@ def apply_ui_design_and_hover_tts():
 
     # Script JavaScript corrigé et intégré à 100% pour la synthèse vocale au survol (Web Speech API)
     audio_hover_js = ""
-    if st.session_state.audio_on_hover:
+    if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
         <script>
         (function() {
@@ -240,7 +240,7 @@ def apply_ui_design_and_hover_tts():
         font-weight: 500 !important;
     }}
 
-    /* Cartes de contenu blanches de la maquette */
+    /* Cartes de contenu blanches de la maquette et stylisation des dalles de bordure native */
     .buse-card, div[data-testid="stVerticalBlockBorder"] {{
         background-color: {card_bg} !important;
         border-radius: 16px !important;
@@ -334,7 +334,7 @@ def apply_ui_design_and_hover_tts():
         margin-bottom: 20px;
     }}
     </style>
-    """ + (audio_hover_js if st.session_state.audio_on_hover else ""), unsafe_allow_html=True)
+    """ + (audio_hover_js if st.session_state.get('audio_on_hover', True) else ""), unsafe_allow_html=True)
 
 # --- CONSOLE EXPERTE DE RÉPONSES LOCALES IDCC 1517 & RPS ---
 def call_eagle_ia_local(prompt, context=""):
@@ -445,29 +445,30 @@ def main_app():
             unsafe_allow_html=True
         )
         
-        # Navigation synchronisée
-        nav = st.radio("MENU", menu_items, index=st.session_state.menu_index, key="sidebar_nav_v8")
+        # Navigation synchronisée à l'aide d'un get() sécurisé
+        idx_init = st.session_state.get('menu_index', 0)
+        nav = st.radio("MENU", menu_items, index=idx_init, key="sidebar_nav_v8")
         
-        # Si l'utilisateur clique manuellement sur le menu radio, on met à jour l'index interne
-        st.session_state.menu_index = menu_items.index(nav)
+        # On met à jour l'index interne de session
+        st.session_state['menu_index'] = menu_items.index(nav)
         
         st.markdown("---")
         st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
-        st.session_state.non_voyant = st.toggle("♿ Mode non voyant", value=st.session_state.non_voyant, key="tg_non_voyant_v8")
-        st.session_state.audio_on_hover = st.toggle("🔊 Audio au survol", value=st.session_state.audio_on_hover, key="tg_audio_hover_v8")
-        st.session_state.high_contrast = st.toggle("🌓 Contraste élevé", value=st.session_state.high_contrast, key="tg_contrast_v8")
+        st.session_state['non_voyant'] = st.toggle("♿ Mode non voyant", value=st.session_state.get('non_voyant', False), key="tg_non_voyant_v8")
+        st.session_state['audio_on_hover'] = st.toggle("🔊 Audio au survol", value=st.session_state.get('audio_on_hover', True), key="tg_audio_hover_v8")
+        st.session_state['high_contrast'] = st.toggle("🌓 Contraste élevé", value=st.session_state.get('high_contrast', False), key="tg_contrast_v8")
         
         st.markdown("---")
         if st.button("DÉCONNEXION", key="btn_logout_main_v8"):
-            st.session_state.auth = False
-            st.session_state.loading_complete = False
+            st.session_state['auth'] = False
+            st.session_state['loading_complete'] = False
             st.rerun()
 
     # --- ARCHITECTURE PAR DIVISION ASYMÉTRIQUE (Photo 2) ---
     col_main, col_right_pane = st.columns([3, 1])
 
     with col_main:
-        if st.session_state.menu_index == 0:  # Accueil
+        if st.session_state.get('menu_index', 0) == 0:  # Accueil
             col_text, col_mascotte = st.columns([2, 1])
             with col_text:
                 st.markdown(
@@ -490,8 +491,8 @@ def main_app():
                 
                 if submit_q and search_q:
                     response = call_eagle_ia_local(search_q)
-                    st.session_state.ai_history.append({"q": search_q, "a": response})
-                    st.session_state.menu_index = 1  # Redirection immédiate vers Eagle Agent
+                    st.session_state['ai_history'].append({"q": search_q, "a": response})
+                    st.session_state['menu_index'] = 1  # Redirection immédiate vers Eagle Agent
                     safe_rerun()
                 
             st.markdown("<p style='font-weight: 500; font-size: 0.95rem; margin-top: 15px;'>Suggestions rapides :</p>", unsafe_allow_html=True)
@@ -505,15 +506,15 @@ def main_app():
                 with cols_sug[idx]:
                     if st.button(sug, key=f"sug_btn_{idx}_v8"):
                         response = call_eagle_ia_local(sug)
-                        st.session_state.ai_history.append({"q": sug, "a": response})
-                        st.session_state.menu_index = 1  # Redirection immédiate
+                        st.session_state['ai_history'].append({"q": sug, "a": response})
+                        st.session_state['menu_index'] = 1  # Redirection immédiate
                         safe_rerun()
 
             # --- CARROUSEL D'INFORMATIONS INTERACTIF ---
             st.markdown("<h3 style='margin-top: 25px;'>Actualités & Informations Clés</h3>", unsafe_allow_html=True)
             
             # Récupération de l'élément actif du carrousel
-            current_item = CAROUSEL_ITEMS[st.session_state.carousel_index]
+            current_item = CAROUSEL_ITEMS[st.session_state.get('carousel_index', 0)]
             
             st.markdown(
                 f"""
@@ -530,11 +531,11 @@ def main_app():
             col_prev, col_spacer, col_next = st.columns([1, 4, 1])
             with col_prev:
                 if st.button("⬅️ Précédent", key="carousel_prev"):
-                    st.session_state.carousel_index = (st.session_state.carousel_index - 1) % len(CAROUSEL_ITEMS)
+                    st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) - 1) % len(CAROUSEL_ITEMS)
                     safe_rerun()
             with col_next:
                 if st.button("Suivant ➡️", key="carousel_next"):
-                    st.session_state.carousel_index = (st.session_state.carousel_index + 1) % len(CAROUSEL_ITEMS)
+                    st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) + 1) % len(CAROUSEL_ITEMS)
                     safe_rerun()
 
             # Les 4 dalles d'actions principales de la Photo 2
@@ -567,7 +568,7 @@ def main_app():
                     """, unsafe_allow_html=True
                 )
 
-        elif st.session_state.menu_index == 1:  # Eagle Agent (IA & RPS)
+        elif st.session_state.get('menu_index', 0) == 1:  # Eagle Agent (IA & RPS)
             st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             
@@ -577,33 +578,33 @@ def main_app():
                 
                 if submit_agent and user_input:
                     with st.spinner("Analyse sémantique..."):
-                        response = call_eagle_ia_local(user_input, st.session_state.analysis_results or "")
-                        st.session_state.ai_history.append({"q": user_input, "a": response})
-                        # Streamlit actualise automatiquement les états au submit, pas de rerun manuel requis
+                        response = call_eagle_ia_local(user_input, st.session_state.get('analysis_results', None))
+                        st.session_state['ai_history'].append({"q": user_input, "a": response})
+                        # Rerun non requis pour les formulaires Streamlit natifs
             st.markdown("</div>", unsafe_allow_html=True)
 
-            for idx, chat in enumerate(reversed(st.session_state.ai_history)):
+            for idx, chat in enumerate(reversed(st.session_state.get('ai_history', []))):
                 with st.expander(f"Question : {chat['q']}", expanded=True):
                     st.markdown(chat['a'])
                     generate_browser_speech_widget(chat['a'])
 
-        elif st.session_state.menu_index == 2:  # Analyse & Audit
+        elif st.session_state.get('menu_index', 0) == 2:  # Analyse & Audit
             st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit Documentaire</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             doc_uploaded = st.file_uploader("Importer une fiche de paie ou un contrat", type=["pdf", "png", "jpg"], key="uploader_audit_v8")
             if doc_uploaded:
                 if st.button("Lancer l'audit", key="btn_audit_action_v8"):
-                    st.session_state.analysis_results = "Analyse : Conformité IDCC 1517 validée. Vigilance recommandée sur les temps de repos."
+                    st.session_state['analysis_results'] = "Analyse : Conformité IDCC 1517 validée. Vigilance recommandée sur les temps de repos."
                     st.success("Audit complété !")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.menu_index == 3:  # Code du travail
+        elif st.session_state.get('menu_index', 0) == 3:  # Code du travail
             st.markdown("<h2 class='glow-text'>⚖️ Code du travail</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             st.info("La Convention Collective Boulangerie-Pâtisserie (IDCC 1517) régit l'activité.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.menu_index == 4:  # Réseau Sentinelles
+        elif st.session_state.get('menu_index', 0) == 4:  # Réseau Sentinelles
             st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
             df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
             st.map(df_sentinelles)
@@ -612,7 +613,7 @@ def main_app():
                 st.write(f"📍 **{d['Nom']}** ({d['Type']}) — `Téléphone : {d['Contact']}`")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.menu_index == 5:  # Calculateur de primes
+        elif st.session_state.get('menu_index', 0) == 5:  # Calculateur de primes
             st.markdown("<h2 class='glow-text'>💎 Calculateur de Primes & Salaire</h2>", unsafe_allow_html=True)
             col_inf, col_sal = st.columns(2)
             with col_inf:
@@ -635,7 +636,7 @@ def main_app():
                 st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.menu_index == 6:  # Mes documents
+        elif st.session_state.get('menu_index', 0) == 6:  # Mes documents
             st.markdown("<h2 class='glow-text'>📂 Mes documents</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             st.code("📄 contrat_de_travail_IDCC1517.pdf\n📄 avenant_infinity_v4.pdf", language="text")
@@ -679,11 +680,11 @@ def run_loading_sequence():
         for i in range(101):
             time.sleep(0.005)
             bar.progress(float(i) / 100.0)
-        st.session_state.loading_complete = True
+        st.session_state['loading_complete'] = True
         safe_rerun()
 
 # --- SÉCURITÉ DE CODE PIN (Page de connexion Photo 2) ---
-if not st.session_state.auth:
+if not st.session_state.get('auth', False):
     apply_ui_design_and_hover_tts()
     _, col, _ = st.columns([1, 1, 1])
     with col:
@@ -695,12 +696,12 @@ if not st.session_state.auth:
             pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v8")
             if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
                 if pin == "1234":
-                    st.session_state.auth = True
+                    st.session_state['auth'] = True
                     safe_rerun()
                 else:
                     st.error("PIN incorrect.")
 else:
-    if not st.session_state.loading_complete:
+    if not st.session_state.get('loading_complete', False):
         run_loading_sequence()
     else:
         main_app()
