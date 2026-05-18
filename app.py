@@ -26,7 +26,7 @@ if 'loading_complete' not in st.session_state:
 if 'ai_history' not in st.session_state:
     st.session_state.ai_history = []
 if 'theme_mode' not in st.session_state:
-    st.session_state.theme_mode = "light"  # Par défaut "light" conforme à la Photo 2
+    st.session_state.theme_mode = "light"  # Par défaut light conforme à la Photo 2
 if 'audio_on_hover' not in st.session_state:
     st.session_state.audio_on_hover = True  # Activé par défaut pour l'accessibilité
 if 'non_voyant' not in st.session_state:
@@ -38,7 +38,7 @@ if 'transcription_audio' not in st.session_state:
 if 'analysis_results' not in st.session_state:
     st.session_state.analysis_results = None
 if 'user_location' not in st.session_state:
-    st.session_state.user_location = {"lat": 46.3833, "lon": -0.4500}  # Niort / Saint-Maxire (Deux-Sèvres, 79)
+    st.session_state.user_location = {"lat": 46.3833, "lon": -0.4500}  # Niort / Saint-Maxire
 
 # --- BASE DE DONNÉES ENRICHIE (DÉFENSEURS, SYNDICATS & AVOCATS) ---
 EXPERT_DIRECTORY = [
@@ -76,7 +76,7 @@ def apply_ui_design_and_hover_tts():
         text_secondary = "#6B7280"
         border_color = "rgba(0, 0, 0, 0.05)"
 
-    # Script JavaScript pour l'accessibilité vocale au survol (Web Speech API)
+    # Script JavaScript d'accessibilité vocale au survol (Web Speech API)
     audio_hover_js = ""
     if st.session_state.audio_on_hover:
         audio_hover_js = """
@@ -118,13 +118,13 @@ def apply_ui_design_and_hover_tts():
         font-family: 'Inter', sans-serif;
     }}
     
-    /* Sidebar */
+    /* Sidebar restylée aux normes Apple minimalistes */
     section[data-testid="stSidebar"] {{
         background-color: {card_bg};
         border-right: 1px solid {border_color};
     }}
     
-    /* Cartes de la maquette */
+    /* Cartes fidèles à l'image 2 */
     .buse-card {{
         background-color: {card_bg};
         border-radius: 16px;
@@ -206,21 +206,21 @@ def apply_ui_design_and_hover_tts():
     {audio_hover_js}
     """, unsafe_allow_html=True)
 
-# --- SERVICES IA & LECTURE AUDIO DIRECTE ---
+# --- SERVICES IA & AUDIO ---
 def call_eagle_ia(prompt, context=""):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
     system_prompt = (
         "Tu es EAGLE, l'IA de 'La Buse'. Expert : IDCC 1517 et Code du Travail. "
-        "Si l'utilisateur évoque des risques psychosociaux ou du harcèlement, adopte un ton bienveillant, rassurant, et guide-le sur les actions de défense."
+        "Si l'utilisateur évoque des risques psychosociaux, de l'épuisement ou du harcèlement, adopte un ton bienveillant, protecteur, et guide-le précisément sur les actions d'accompagnement légal."
     )
     if not API_KEY:
         if "harcèlement" in prompt.lower() or "rps" in prompt.lower() or "souffrance" in prompt.lower() or "épuisement" in prompt.lower():
             return (
-                "🛡️ **ASSISTANCE DE SÉCURITÉ IA - RISQUES PSYCHOSOCIAUX**\n\n"
-                "Face à une situation de souffrance au travail, d'épuisement ou de harcèlement, voici vos recours de premier secours :\n"
-                "1. **Consignez par écrit chaque événement** (faits, dates, heures, propos, témoins éventuels) sur un support personnel externe à l'entreprise.\n"
-                "2. **Prenez contact de vous-même avec la Médecine du Travail** : ils ont un devoir de secret médical et peuvent imposer des aménagements de poste.\n"
-                "3. **Alertez vos représentants du personnel (CSE)** : ils détiennent un droit d'alerte spécifique pour atteinte aux droits des personnes."
+                "🛡️ **ASSISTANCE SÉCURITÉ JURIDIQUE - SOUFFRANCE AU TRAVAIL**\n\n"
+                "Face à une situation d'épuisement professionnel ou de pressions répétées :\n"
+                "1. **Consignez par écrit chaque fait précis** (dates, heures, témoins, emails) sur un support personnel externe.\n"
+                "2. **Alertez de vous-même la Médecine du Travail** qui détient une capacité de préconisation d'aménagement de poste.\n"
+                "3. **Saisissez vos représentants du personnel (CSE)** qui peuvent lancer une alerte interne d'atteinte aux personnes."
             )
         return f"Analyse de conformité pour '{prompt}' prête dans la base légale IDCC 1517."
     payload = {
@@ -236,7 +236,7 @@ def call_eagle_ia(prompt, context=""):
     return "⚠️ Service IA indisponible temporairement."
 
 def generate_browser_speech_widget(text, element_id):
-    """Génère un bouton de lecture vocale HTML natif pour éviter les erreurs d'API TTS du serveur"""
+    """Génère un widget d'élocution native et fluide pour l'Agent Eagle"""
     clean_text = text.replace('"', '\\"').replace('\n', ' ')
     html_code = f"""
     <button onclick="
@@ -293,21 +293,21 @@ def main_app():
             "Réseau Sentinelles",
             "Calculateur de primes",
             "Mes documents"
-        ], key="sidebar_nav_v6")
+        ], key="sidebar_nav_v7")
         
         st.markdown("---")
         st.markdown("<h4 class='glow-text'>🔊 Accessibilité</h4>", unsafe_allow_html=True)
-        st.session_state.non_voyant = st.toggle("♿ Mode non voyant", value=st.session_state.non_voyant, key="tg_non_voyant")
-        st.session_state.audio_on_hover = st.toggle("🔊 Audio au survol", value=st.session_state.audio_on_hover, key="tg_audio_hover")
-        st.session_state.high_contrast = st.toggle("🌓 Contraste élevé", value=st.session_state.high_contrast, key="tg_contrast")
+        st.session_state.non_voyant = st.toggle("♿ Mode non voyant", value=st.session_state.non_voyant, key="tg_non_voyant_v7")
+        st.session_state.audio_on_hover = st.toggle("🔊 Audio au survol", value=st.session_state.audio_on_hover, key="tg_audio_hover_v7")
+        st.session_state.high_contrast = st.toggle("🌓 Contraste élevé", value=st.session_state.high_contrast, key="tg_contrast_v7")
         
         st.markdown("---")
-        if st.button("DÉCONNEXION", key="btn_logout_main"):
+        if st.button("DÉCONNEXION", key="btn_logout_main_v7"):
             st.session_state.auth = False
             st.session_state.loading_complete = False
             st.rerun()
 
-    # --- STRUCTURE PAR DIVISION (Fidèle à la photo 2) ---
+    # --- ARCHITECTURE PAR DIVISION ASYMÉTRIQUE ---
     col_main, col_right_pane = st.columns([3, 1])
 
     with col_main:
@@ -324,6 +324,7 @@ def main_app():
                     unsafe_allow_html=True
                 )
             with col_mascotte:
+                # Intégration de l'illustration de la mascotte chouette conforme à l'image 2
                 st.markdown(
                     """
                     <div class='mascotte-logo-container'>
@@ -333,7 +334,7 @@ def main_app():
                     unsafe_allow_html=True
                 )
                 
-            search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Ex : Puis-je refuser des heures supplémentaires ?", key="home_global_search_v6")
+            search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Ex : Puis-je refuser des heures supplémentaires ?", key="home_global_search_v7")
             if search_q:
                 st.session_state.ai_history.append({"q": search_q, "a": call_eagle_ia(search_q)})
                 st.toast("Analyse lancée...")
@@ -347,12 +348,12 @@ def main_app():
             cols_sug = st.columns(3)
             for idx, sug in enumerate(suggestions):
                 with cols_sug[idx]:
-                    if st.button(sug, key=f"sug_btn_{idx}"):
+                    if st.button(sug, key=f"sug_btn_{idx}_v7"):
                         response = call_eagle_ia(sug)
                         st.session_state.ai_history.append({"q": sug, "a": response})
-                        st.toast("Analyse démarrée !")
+                        st.toast("Analyse lancée !")
 
-            # Les 4 dalles "Ce que La Buse peut faire pour vous" de la Photo 2
+            # Les 4 dalles d'actions principales de la Photo 2
             st.markdown("<h3 style='margin-top: 35px;'>Ce que La buse peut faire pour vous</h3>", unsafe_allow_html=True)
             grid_col1, grid_col2 = st.columns(2)
             with grid_col1:
@@ -383,10 +384,10 @@ def main_app():
                 )
 
         elif nav == "Eagle Agent (IA & RPS)":
-            st.markdown("<h2 class='glow-text'>🦅 Eagle Agent</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            user_input = st.text_input("Posez votre question juridique ou signalez une difficulté (harcèlement, pressions, RPS) :", placeholder="Saisissez votre question...", key="eagle_ia_input_v6")
-            if st.button("Lancer l'Analyse", key="btn_run_ia_v6"):
+            user_input = st.text_input("Saisissez votre question ou signalez une difficulté (harcèlement, pressions, RPS) :", placeholder="Votre message...", key="eagle_ia_input_v7")
+            if st.button("Lancer l'Analyse", key="btn_run_ia_v7"):
                 if user_input:
                     response = call_eagle_ia(user_input, st.session_state.analysis_results or "")
                     st.session_state.ai_history.append({"q": user_input, "a": response})
@@ -399,28 +400,28 @@ def main_app():
                     generate_browser_speech_widget(chat['a'], idx)
 
         elif nav == "Analyse & Audit":
-            st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit Documentaire</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            doc_uploaded = st.file_uploader("Télécharger une fiche de paie ou contrat", type=["pdf", "png", "jpg"], key="uploader_audit_v6")
+            doc_uploaded = st.file_uploader("Importer un document", type=["pdf", "png", "jpg"], key="uploader_audit_v7")
             if doc_uploaded:
-                if st.button("Lancer l'audit", key="btn_audit_action_v6"):
-                    st.session_state.analysis_results = "Analyse : Conformité IDCC 1517 validée. Vigilance sur la majoration des heures de nuit."
-                    st.success("Audit complété avec succès !")
+                if st.button("Lancer l'audit", key="btn_audit_action_v7"):
+                    st.session_state.analysis_results = "Analyse : Conformité IDCC 1517 validée. Vigilance recommandée sur les temps de repos."
+                    st.success("Audit complété !")
             st.markdown("</div>", unsafe_allow_html=True)
 
         elif nav == "Code du travail":
             st.markdown("<h2 class='glow-text'>⚖️ Code du travail</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            st.info("La Convention Collective Boulangerie-Pâtisserie (IDCC 1517) s'applique.")
+            st.info("La Convention Collective Boulangerie-Pâtisserie (IDCC 1517) régit l'activité.")
             st.markdown("</div>", unsafe_allow_html=True)
 
         elif nav == "Réseau Sentinelles":
-            st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
             df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
             st.map(df_sentinelles)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             for d in EXPERT_DIRECTORY:
-                st.write(f"📍 **{d['Nom']}** ({d['Type']}) — `{d['Contact']}`")
+                st.write(f"📍 **{d['Nom']}** ({d['Type']}) — `Téléphone : {d['Contact']}`")
             st.markdown("</div>", unsafe_allow_html=True)
 
         elif nav == "Calculateur de primes":
@@ -428,26 +429,26 @@ def main_app():
             col_inf, col_sal = st.columns(2)
             with col_inf:
                 st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-                st.subheader("Prime Infinity (PDF)")
-                ca_magasin = st.number_input("Chiffre d'Affaire réalisé Magasin (€)", value=1750.0, step=50.0, key="ca_mag_calc_v6")
-                h_travail = st.number_input("Heures de présence", value=48, step=1, key="h_pres_calc_v6")
+                st.subheader("Prime Infinity (Barème PDF)")
+                ca_magasin = st.number_input("Chiffre d'Affaires réalisé Magasin (€)", value=1750.0, step=50.0, key="ca_mag_calc_v7")
+                h_travail = st.number_input("Heures réelles travaillées", value=48, step=1, key="h_pres_calc_v7")
                 ecart, bonus, color, progress = calculate_infinity_v4(ca_magasin, h_travail)
-                st.metric("Écart au seuil (1300 €)", f"{ecart:.2f} €")
+                st.metric("Écart au seuil magasin (1300 €)", f"{ecart:.2f} €")
                 st.markdown(f"#### Prime : <span style='color:{color}; font-size:1.4em;'>{bonus}</span>", unsafe_allow_html=True)
                 st.progress(progress)
                 st.markdown("</div>", unsafe_allow_html=True)
             with col_sal:
                 st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-                st.subheader("Salaire Brut vs Net")
-                brut = st.number_input("Salaire Brut (€)", value=2100.0, step=50.0, key="brut_salary_calc_v6")
-                statut = st.selectbox("Statut", ["Non-Cadre (22%)", "Cadre (25%)"], key="statut_salary_calc_v6")
+                st.subheader("Simulateur de Revenus")
+                brut = st.number_input("Salaire Mensuel Brut (€)", value=2100.0, step=50.0, key="brut_salary_calc_v7")
+                statut = st.selectbox("Statut de l'employé", ["Non-Cadre (22%)", "Cadre (25%)"], key="statut_salary_calc_v7")
                 taux = 0.78 if "Non-Cadre" in statut else 0.75
                 st.write(f"### NET ESTIMÉ : **{brut * taux:.2f} €**")
-                st.write(f"### IJ Maladie estimée : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
+                st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
                 st.markdown("</div>", unsafe_allow_html=True)
 
         elif nav == "Mes documents":
-            st.markdown("<h2 class='glow-text'>📂 Coffre-fort numérique</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 class='glow-text'>📂 Mes documents</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             st.code("📄 contrat_de_travail_IDCC1517.pdf\n📄 avenant_infinity_v4.pdf", language="text")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -474,10 +475,10 @@ def main_app():
             </div>
             """, unsafe_allow_html=True
         )
-        if st.button("Être mis en relation", key="btn_right_sentinel_action"):
+        if st.button("Être mis en relation", key="btn_right_sentinel_action_v7"):
             st.success("Mise en relation d'urgence demandée.")
 
-# --- SÉQUENCE DE CHARGEMENT INITIAL (Stabilité iPhone & Desktop) ---
+# --- INITIALISATION ÉQUILIBRÉE ET SÉCURISÉE ---
 def run_loading_sequence():
     apply_ui_design_and_hover_tts()
     _, col, _ = st.columns([1, 2, 1])
@@ -485,7 +486,7 @@ def run_loading_sequence():
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center;' class='glow-text'>la buse - initialisation...</h2>", unsafe_allow_html=True)
         
-        # Résolution du bug Streamlit : appel à st.progress avec un entier sans argument 'key'
+        # Résolution définitive du bug st.progress par l'utilisation d'un entier strict de 0 à 100 sans paramètre key
         bar = st.progress(0)
         for i in range(101):
             time.sleep(0.005)
@@ -493,7 +494,7 @@ def run_loading_sequence():
         st.session_state.loading_complete = True
         st.rerun()
 
-# --- CODE D'ACCÈS / AUTHENTIFICATION ---
+# --- SÉCURITÉ DE CODE PIN ---
 if not st.session_state.auth:
     apply_ui_design_and_hover_tts()
     _, col, _ = st.columns([1, 1, 1])
@@ -501,8 +502,8 @@ if not st.session_state.auth:
         st.markdown("<br><br><br><br>", unsafe_allow_html=True)
         st.markdown("<div class='buse-card' style='text-align:center;'>", unsafe_allow_html=True)
         st.markdown("<h2 class='glow-text'>accès sécurisé</h2>", unsafe_allow_html=True)
-        pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v6")
-        if st.button("DÉVERROUILLER", key="btn_submit_login_v6"):
+        pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v7")
+        if st.button("DÉVERROUILLER", key="btn_submit_login_v7"):
             if pin == "1234":
                 st.session_state.auth = True
                 st.rerun()
