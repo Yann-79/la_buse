@@ -8,6 +8,15 @@ import base64
 import math
 from datetime import datetime
 
+# # Chosen Palette: Apple Violet Premium (Arrière-plan: #F4F5FC, Cartes: #FFFFFF, Accent: #5551FF, Survol: #413CFF, Texte: #1E203B)
+# # Application Structure Plan: 
+# # La structure de l'application est calquée fidèlement sur la Photo 2.
+# # Elle comprend :
+# # 1. Une barre latérale gauche pour naviguer de manière stable.
+# # 2. Un panneau central large pour le flux principal (carrousel, recherche, dalles d'actions).
+# # 3. Un panneau droit pour les outils rapides et le paramétrage interactif de l'accessibilité.
+# # Cette architecture asymétrique garantit une lisibilité maximale et évite toute interférence de rendu DOM.
+
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
     page_title="La Buse - Votre assistant au service du monde du travail",
@@ -19,6 +28,13 @@ st.set_page_config(
 # --- CONFIGURATION API ---
 API_KEY = ""  # Gérée automatiquement au runtime par l'environnement
 
+# --- CONSTRUCTEUR DE REDIRECTION ET RERUN ROBUSTE ---
+def safe_rerun():
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
+
 # --- INITIALISATION DE L'ÉTAT DE SESSION ---
 if 'auth' not in st.session_state:
     st.session_state.auth = False
@@ -26,10 +42,10 @@ if 'loading_complete' not in st.session_state:
     st.session_state.loading_complete = False
 if 'ai_history' not in st.session_state:
     st.session_state.ai_history = []
-if 'current_view' not in st.session_state:
-    st.session_state.current_view = "Accueil"
+if 'sidebar_nav_v8' not in st.session_state:
+    st.session_state.sidebar_nav_v8 = "Accueil"
 if 'audio_on_hover' not in st.session_state:
-    st.session_state.audio_on_hover = True  # Activé par défaut pour l'accessibilité vocale immédiate
+    st.session_state.audio_on_hover = True  # Activé d'office pour résoudre le souci de lecture
 if 'non_voyant' not in st.session_state:
     st.session_state.non_voyant = False
 if 'high_contrast' not in st.session_state:
@@ -136,7 +152,7 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Script JavaScript pour l'accessibilité vocale au survol (Web Speech API)
+    # Script JavaScript corrigé et intégré à 100% pour la synthèse vocale au survol (Web Speech API)
     audio_hover_js = ""
     if st.session_state.audio_on_hover:
         audio_hover_js = """
@@ -145,7 +161,7 @@ def apply_ui_design_and_hover_tts():
             const synth = window.speechSynthesis;
             let lastText = "";
             let timer = null;
-            
+
             function ttsSpeak(text) {
                 if (!text || text === lastText) return;
                 synth.cancel();
@@ -156,20 +172,35 @@ def apply_ui_design_and_hover_tts():
                 lastText = text;
             }
 
-            document.addEventListener('mouseover', (e) => {
-                const el = e.target;
-                const textToRead = el.getAttribute('data-tts') || el.innerText;
-                if (el.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge') && textToRead) {
-                    clearTimeout(timer);
-                    timer = setTimeout(() => {
-                        ttsSpeak(textToRead.trim());
-                    }, 150);
+            function setupListeners(doc) {
+                doc.addEventListener('mouseover', (e) => {
+                    const el = e.target;
+                    const textToRead = el.getAttribute('data-tts') || el.innerText || el.textContent;
+                    if (el.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge') && textToRead) {
+                        clearTimeout(timer);
+                        timer = setTimeout(() => {
+                            ttsSpeak(textToRead.trim());
+                        }, 120);
+                    }
+                });
+
+                doc.addEventListener('mouseout', () => {
+                    lastText = "";
+                });
+            }
+
+            // Attache les écouteurs sur le document local et sur le document parent de Streamlit
+            try {
+                setupListeners(document);
+            } catch(e) { console.error("Erreur doc local:", e); }
+
+            try {
+                if (window.parent && window.parent.document) {
+                    setupListeners(window.parent.document);
                 }
-            });
-            
-            document.addEventListener('mouseout', () => {
-                lastText = "";
-            });
+            } catch(e) {
+                console.log("Accès parent restreint (CORS). Écouteurs locaux uniquement.");
+            }
         })();
         </script>
         """
@@ -209,7 +240,7 @@ def apply_ui_design_and_hover_tts():
         font-weight: 500 !important;
     }}
 
-    /* Cartes de contenu (Photo 2) et stylisation des containers de bordure Streamlit natifs */
+    /* Cartes de contenu blanches de la maquette */
     .buse-card, div[data-testid="stVerticalBlockBorder"] {{
         background-color: {card_bg} !important;
         border-radius: 16px !important;
@@ -265,7 +296,7 @@ def apply_ui_design_and_hover_tts():
         margin-bottom: 30px;
     }}
     
-    /* Styles spécifiques pour le carrousel interactif */
+    /* Styles spécifiques pour le carrousel d'informations */
     .carousel-container {{
         background-color: {card_bg};
         border-radius: 16px;
@@ -388,6 +419,16 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
 def main_app():
     apply_ui_design_and_hover_tts()
     
+    menu_items = [
+        "Accueil",
+        "Eagle Agent (IA & RPS)",
+        "Analyse & Audit",
+        "Code du travail",
+        "Réseau Sentinelles",
+        "Calculateur de primes",
+        "Mes documents"
+    ]
+
     with st.sidebar:
         # En-tête de la sidebar avec la chouette et le nom de l'application
         st.markdown(
@@ -404,15 +445,11 @@ def main_app():
             unsafe_allow_html=True
         )
         
-        nav = st.radio("MENU", [
-            "Accueil",
-            "Eagle Agent (IA & RPS)",
-            "Analyse & Audit",
-            "Code du travail",
-            "Réseau Sentinelles",
-            "Calculateur de primes",
-            "Mes documents"
-        ], key="sidebar_nav_v8")
+        # Navigation synchronisée
+        nav = st.radio("MENU", menu_items, index=st.session_state.menu_index, key="sidebar_nav_v8")
+        
+        # Si l'utilisateur clique manuellement sur le menu radio, on met à jour l'index interne
+        st.session_state.menu_index = menu_items.index(nav)
         
         st.markdown("---")
         st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
@@ -430,7 +467,7 @@ def main_app():
     col_main, col_right_pane = st.columns([3, 1])
 
     with col_main:
-        if nav == "Accueil":
+        if st.session_state.menu_index == 0:  # Accueil
             col_text, col_mascotte = st.columns([2, 1])
             with col_text:
                 st.markdown(
@@ -454,7 +491,8 @@ def main_app():
                 if submit_q and search_q:
                     response = call_eagle_ia_local(search_q)
                     st.session_state.ai_history.append({"q": search_q, "a": response})
-                    st.toast("Analyse lancée...")
+                    st.session_state.menu_index = 1  # Redirection immédiate vers Eagle Agent
+                    safe_rerun()
                 
             st.markdown("<p style='font-weight: 500; font-size: 0.95rem; margin-top: 15px;'>Suggestions rapides :</p>", unsafe_allow_html=True)
             suggestions = [
@@ -468,7 +506,8 @@ def main_app():
                     if st.button(sug, key=f"sug_btn_{idx}_v8"):
                         response = call_eagle_ia_local(sug)
                         st.session_state.ai_history.append({"q": sug, "a": response})
-                        st.toast("Analyse lancée !")
+                        st.session_state.menu_index = 1  # Redirection immédiate
+                        safe_rerun()
 
             # --- CARROUSEL D'INFORMATIONS INTERACTIF ---
             st.markdown("<h3 style='margin-top: 25px;'>Actualités & Informations Clés</h3>", unsafe_allow_html=True)
@@ -492,11 +531,11 @@ def main_app():
             with col_prev:
                 if st.button("⬅️ Précédent", key="carousel_prev"):
                     st.session_state.carousel_index = (st.session_state.carousel_index - 1) % len(CAROUSEL_ITEMS)
-                    st.rerun()
+                    safe_rerun()
             with col_next:
                 if st.button("Suivant ➡️", key="carousel_next"):
                     st.session_state.carousel_index = (st.session_state.carousel_index + 1) % len(CAROUSEL_ITEMS)
-                    st.rerun()
+                    safe_rerun()
 
             # Les 4 dalles d'actions principales de la Photo 2
             st.markdown("<h3 style='margin-top: 35px;'>Ce que La buse peut faire pour vous</h3>", unsafe_allow_html=True)
@@ -528,7 +567,7 @@ def main_app():
                     """, unsafe_allow_html=True
                 )
 
-        elif nav == "Eagle Agent (IA & RPS)":
+        elif st.session_state.menu_index == 1:  # Eagle Agent (IA & RPS)
             st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             
@@ -540,7 +579,7 @@ def main_app():
                     with st.spinner("Analyse sémantique..."):
                         response = call_eagle_ia_local(user_input, st.session_state.analysis_results or "")
                         st.session_state.ai_history.append({"q": user_input, "a": response})
-                        st.rerun()
+                        # Streamlit actualise automatiquement les états au submit, pas de rerun manuel requis
             st.markdown("</div>", unsafe_allow_html=True)
 
             for idx, chat in enumerate(reversed(st.session_state.ai_history)):
@@ -548,7 +587,7 @@ def main_app():
                     st.markdown(chat['a'])
                     generate_browser_speech_widget(chat['a'])
 
-        elif nav == "Analyse & Audit":
+        elif st.session_state.menu_index == 2:  # Analyse & Audit
             st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit Documentaire</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             doc_uploaded = st.file_uploader("Importer une fiche de paie ou un contrat", type=["pdf", "png", "jpg"], key="uploader_audit_v8")
@@ -558,13 +597,13 @@ def main_app():
                     st.success("Audit complété !")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif nav == "Code du travail":
+        elif st.session_state.menu_index == 3:  # Code du travail
             st.markdown("<h2 class='glow-text'>⚖️ Code du travail</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             st.info("La Convention Collective Boulangerie-Pâtisserie (IDCC 1517) régit l'activité.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif nav == "Réseau Sentinelles":
+        elif st.session_state.menu_index == 4:  # Réseau Sentinelles
             st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
             df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
             st.map(df_sentinelles)
@@ -573,7 +612,7 @@ def main_app():
                 st.write(f"📍 **{d['Nom']}** ({d['Type']}) — `Téléphone : {d['Contact']}`")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif nav == "Calculateur de primes":
+        elif st.session_state.menu_index == 5:  # Calculateur de primes
             st.markdown("<h2 class='glow-text'>💎 Calculateur de Primes & Salaire</h2>", unsafe_allow_html=True)
             col_inf, col_sal = st.columns(2)
             with col_inf:
@@ -596,7 +635,7 @@ def main_app():
                 st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        elif nav == "Mes documents":
+        elif st.session_state.menu_index == 6:  # Mes documents
             st.markdown("<h2 class='glow-text'>📂 Mes documents</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             st.code("📄 contrat_de_travail_IDCC1517.pdf\n📄 avenant_infinity_v4.pdf", language="text")
@@ -641,7 +680,7 @@ def run_loading_sequence():
             time.sleep(0.005)
             bar.progress(float(i) / 100.0)
         st.session_state.loading_complete = True
-        st.rerun()
+        safe_rerun()
 
 # --- SÉCURITÉ DE CODE PIN (Page de connexion Photo 2) ---
 if not st.session_state.auth:
@@ -657,7 +696,7 @@ if not st.session_state.auth:
             if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
                 if pin == "1234":
                     st.session_state.auth = True
-                    st.rerun()
+                    safe_rerun()
                 else:
                     st.error("PIN incorrect.")
 else:
