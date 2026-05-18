@@ -13,10 +13,9 @@ from datetime import datetime
 # # Application Structure Plan: 
 # # La structure de l'application est calquée fidèlement sur la Photo 2.
 # # Elle comprend :
-# # 1. Une barre latérale gauche pour naviguer et contrôler l'accessibilité en temps réel (OFF par défaut).
-# # 2. Un panneau central large pour le flux principal (carrousel, recherche Grok AI, dalles d'actions, réassurance, prise de contact).
-# # 3. Un panneau droit pour les outils rapides et le paramétrage interactif.
-# # Cette architecture asymétrique garantit une lisibilité maximale et évite toute interférence de rendu DOM.
+# # 1. Une barre latérale gauche pour naviguer, gérer l'accessibilité (OFF par défaut) et réinitialiser en mode normal.
+# # 2. Un panneau central large pour le flux principal (carrousel, recherche Grok AI, dalles d'actions, réassurance, prise de contact Sentinelles).
+# # 3. Un panneau droit pour les outils rapides et le paramétrage interactif de l'accessibilité.
 
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
@@ -46,7 +45,7 @@ if 'ai_history' not in st.session_state:
 if 'sidebar_nav_v8' not in st.session_state:
     st.session_state['sidebar_nav_v8'] = "Accueil"
 
-# Accessibilité par défaut à False (OFF) comme requis par l'utilisateur
+# Accessibilité désactivée par défaut (OFF) comme requis
 if 'audio_on_hover' not in st.session_state:
     st.session_state['audio_on_hover'] = False
 if 'non_voyant' not in st.session_state:
@@ -86,7 +85,7 @@ CAROUSEL_ITEMS = [
     }
 ]
 
-# --- BASE DE DONNÉES ENRICHIE DES EXPERTS DE PROXIMITÉ (AVEC E-MAILS POUR MAILING INSTANTANÉ) ---
+# --- BASE DE DONNÉES ENRICHIE DES EXPERTS DE PROXIMITÉ (AVEC E-MAILS DE SERVICE DIRECT) ---
 EXPERT_DIRECTORY = [
     {
         "Type": "Avocat Spécialisé", 
@@ -206,7 +205,6 @@ def apply_ui_design_and_hover_tts():
     accent_color = "#5551FF"
     hover_color = "#413CFF"
     
-    # Prise en compte dynamique des commutateurs
     if st.session_state.get('high_contrast', False):
         bg_color = "#000000"
         card_bg = "#111111"
@@ -222,7 +220,7 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Intégration exacte de votre script d'accessibilité vocale au survol (Web Speech API).
+    # Intégration exacte au caractère près du script JS d'accessibilité transmis par l'utilisateur
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', False):
         audio_hover_js = r'''
@@ -334,7 +332,7 @@ def apply_ui_design_and_hover_tts():
         </script>
         '''
 
-    # Forçage CSS pour garantir l'aspect graphique asymétrique et épuré de la maquette (Photo 2)
+    # CSS de Rendu Premium asymétrique (Photo 2)
     st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -493,8 +491,6 @@ def render_footer_credits():
 # --- CONSOLE EXPERTE DE RÉPONSES LOCALES AVEC MOTEUR GROK (xAI) ---
 def call_eagle_ia_local(prompt, context=""):
     p_lower = prompt.lower()
-    
-    # Structure de réponse elite signée par Grok
     intro_grok = "⚡ **Grok (xAI) — Analyse Légale & Sémantique en temps réel**\n\n"
     
     if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower or "lisencement" in p_lower or "licenciement" in p_lower or "indemnit" in p_lower:
@@ -520,7 +516,7 @@ def call_eagle_ia_local(prompt, context=""):
                 "Face à une situation de souffrance psychologique, d'épuisement ou de harcèlement moral au travail :\n\n"
                 "### Anomalies et Non-respect détectés :\n"
                 "- Atteinte potentielle à l'Article L4121-1 du Code du travail concernant l'obligation légale de protection de la santé mentale et physique.\n"
-                "- Manquement suspecté aux règles élémentaires de prévention des risques psychosociaux (RPS).\n\n"
+                "- Manquement suspecté aux règles de prévention des risques psychosociaux (RPS).\n\n"
                 "### Protocole recommandé :\n"
                 "1. **Consignez de manière écrite tous les faits :** Prenez des notes détaillées (faits précis, dates, heures, propos tenus, collègues présents ou témoins éventuels).\n"
                 "2. **Alertez l'employeur ou son représentant :** Rappelez son obligation de sécurité.\n"
@@ -531,7 +527,7 @@ def call_eagle_ia_local(prompt, context=""):
             f"{intro_grok}"
             "Selon la réglementation en vigueur du droit du travail :\n\n"
             "### Anomalies et Non-respect détectés :\n"
-            "- Non-respect flagrant du délai de prévenance légal de 7 jours pour la modification de vos horaires.\n"
+            "- Non-respect du délai de prévenance légal de 7 jours pour la modification de vos horaires.\n"
             "- Défaut de paiement ou de majoration réglementaire de vos heures supplémentaires effectuées au-delà des 35 heures.\n\n"
             "### Droits à faire valoir :\n"
             "- **Délai de prévenance :** Vos horaires collectifs ou individuels doivent être connus au moins 7 jours à l'avance.\n"
@@ -544,8 +540,7 @@ def call_eagle_ia_local(prompt, context=""):
             "### Anomalies et Non-respect détectés :\n"
             "- Suspicion de non-respect de la plage horaire légale de nuit (21h00 - 6h00) sans compensation ni majoration salariale de 25% minimum.\n\n"
             "### Vos garanties réglementaires :\n"
-            "- Les heures effectuées durant la période de nuit ouvrent droit à des compensations sous forme de repos compensateur ou de majoration de salaire selon les accords de branche applicables.\n"
-            "- Le recours au travail de nuit doit rester exceptionnel."
+            "- Les heures effectuées durant la période de nuit ouvrent droit à des compensations sous forme de repos compensateur ou de majoration de salaire selon les accords de branche applicables."
         )
     elif "lefebvre" in p_lower:
         return (
@@ -567,9 +562,7 @@ def call_eagle_ia_local(prompt, context=""):
 
 def generate_browser_speech_widget(text):
     """Génère un widget d'élocution robuste basé sur le Web Speech API et immune aux conflits de caractères"""
-    # Encodage URL sécurisé en Python pour éliminer tout risque de crash JS lié aux quotes ou retours à la ligne
     encoded_text = urllib.parse.quote(text)
-    
     html_code = f"""
     <button onclick="
         try {{
@@ -605,8 +598,7 @@ def generate_browser_speech_widget(text):
     st.components.v1.html(html_code, height=65)
 
 # --- CONSTRUCTEUR DE MAIL AUTOMATIQUE SÉCURISÉ (CONFORME À LA LOI) ---
-def generate_prefilled_mail_link(expert_name, expert_email):
-    # Récupération de l'historique avec l'Agent Eagle pour contextualiser
+def generate_prefilled_mail_link(expert_name, expert_email, include_proofs=False):
     history = st.session_state.get('ai_history', [])
     last_query = ""
     last_answer = ""
@@ -614,35 +606,31 @@ def generate_prefilled_mail_link(expert_name, expert_email):
         last_query = history[-1]["q"]
         last_answer = history[-1]["a"]
         
-    # Analyse de la présence de preuves / fiches de paie
-    has_audit = st.session_state.get('analysis_results') is not None
-    statut_preuves = "Des pièces d'audit de conformité (fiche de paie, contrats) ont été auditées par la plateforme." if has_audit else "Aucune pièce d'audit n'a été rattachée à cette heure (preuves à fournir lors de notre entretien)."
+    statut_preuves = "Des pièces d'audit de conformité (bulletins de salaire, plannings réels, avenants de contrat) ont été rattachées comme éléments de preuve à ce dossier." if include_proofs else "Aucune pièce d'audit n'est transmise dans cette première prise de contact (preuves factuelles à consolider lors de notre entretien)."
 
     # Construction d'un mail hautement professionnel
-    subject = f"Demande d'assistance juridique urgente - Alexandre [La Buse]"
+    subject = f"Prise de contact d'urgence - Analyse de conformité La Buse"
     
     body = f"Bonjour {expert_name},\n\n" \
-           f"Je vous contacte par le biais de la plateforme d'accessibilité La Buse pour solliciter vos conseils et votre assistance dans le cadre d'un litige lié à mon contrat de travail à Niort.\n\n" \
-           f"Lors de mes échanges avec l'assistant sémantique Eagle, les éléments de fait suivants ont été consignés :\n"
+           f"Je vous sollicite en tant que Sentinelle afin d'obtenir vos conseils et d'évaluer l'opportunité d'une démarche d'accompagnement ou de recours prud'homal.\n\n" \
+           f"Mes échanges avec l'assistant juridique Grok ont mis en lumière les éléments factuels suivants :\n"
            
     if last_query:
         body += f"- Situation exposée : \"{last_query}\"\n"
         if "harcèlement" in last_query.lower() or "rps" in last_query.lower() or "pression" in last_query.lower():
-            body += f"- Droits concernés : Article L4121-1 du Code du travail (Obligation de sécurité de l'employeur quant à la santé mentale).\n"
+            body += f"- Manquement suspecté : Atteinte à l'obligation générale de sécurité et de santé de l'employeur (Article L4121-1 du Code du travail).\n"
         elif "heure" in last_query.lower() or "planning" in last_query.lower():
-            body += f"- Droits concernés : Non-respect suspecté des délais de prévenance (7 jours d'anticipation minimum) et non-paiement suspecté des majorations d'heures supplémentaires.\n"
+            body += f"- Manquement suspecté : Non-respect des délais de prévenance et défaut de majorations pour heures supplémentaires.\n"
         elif "nuit" in last_query.lower():
-            body += f"- Droits concernés : Absence de compensations obligatoires pour le travail de nuit.\n"
+            body += f"- Manquement suspecté : Défaut de majorations ou de repos compensateurs pour travail de nuit.\n"
     else:
-        body += f"- Situation exposée : Demande d'audit global de conformité de mon poste et de mes primes.\n"
+        body += f"- Situation exposée : Demande d'examen de conformité globale de mes bulletins de salaire et de mes primes contractuelles (Infinity V4).\n"
         
     body += f"\nStatut des preuves :\n{statut_preuves}\n\n" \
-           f"Je reste disponible pour convenir d'un rendez-vous rapide afin de vous exposer mon dossier complet.\n\n" \
+           f"Je me tiens à votre entière disposition pour convenir d'un échange téléphonique ou physique.\n\n" \
            f"Cordialement,\n" \
-           f"Alexandre\n" \
-           f"Utilisateur certifié - La Buse"
+           f"Utilisateur Certifié - Plateforme d'accessibilité La Buse"
 
-    # Encodage sécurisé pour mailto
     encoded_subject = urllib.parse.quote(subject)
     encoded_body = urllib.parse.quote(body)
     
@@ -666,7 +654,6 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
 def main_app():
     apply_ui_design_and_hover_tts()
     
-    # Navigation épurée
     menu_items = [
         "Accueil",
         "Eagle Agent (IA & RPS)",
@@ -676,7 +663,7 @@ def main_app():
     ]
 
     with st.sidebar:
-        # En-tête de la barre latérale
+        # En-tête de la barre latérale modernisé
         st.markdown(
             f"""
             <div style='display: flex; align-items: center; justify-content: center; margin-bottom: 25px;'>
@@ -711,12 +698,12 @@ def main_app():
         st.session_state['transcription_audio'] = transcription_audio
         
         # Possibilité de rebasculer en mode normal sans accessibilité
-        if st.button("Mode Normal (Sans Accessibilité)", key="btn_reset_accessibility"):
+        if st.button("Désactiver l'accessibilité", key="btn_reset_accessibility"):
             st.session_state['non_voyant'] = False
             st.session_state['audio_on_hover'] = False
             st.session_state['high_contrast'] = False
             st.session_state['transcription_audio'] = False
-            st.success("Accessibilité réinitialisée !")
+            st.success("Mode normal rétabli !")
             safe_rerun()
             
         st.markdown("---")
@@ -943,6 +930,18 @@ def main_app():
         elif current_nav == "Réseau Sentinelles":
             st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
             
+            # Actionneur d'accessibilité immédiat à l'intérieur de la vue
+            col_acc_toggle, col_acc_reset = st.columns([2, 1])
+            with col_acc_toggle:
+                st.session_state['audio_on_hover'] = st.toggle("🔊 Activer l'accessibilité vocale au survol", value=st.session_state['audio_on_hover'], key="tg_sentinel_local_hover")
+            with col_acc_reset:
+                if st.button("Couper l'accessibilité", key="btn_sentinel_reset"):
+                    st.session_state['audio_on_hover'] = False
+                    st.session_state['non_voyant'] = False
+                    st.session_state['high_contrast'] = False
+                    st.success("Mode normal activé !")
+                    safe_rerun()
+            
             # Focus automatique sur Maitre Lefebvre s'il a été appelé par l'ancre URL
             if st.session_state.get('focus_expert') == "Maître Lefebvre":
                 st.success("📍 Focus appliqué sur : Maître Lefebvre (Demandé via URL)")
@@ -955,8 +954,11 @@ def main_app():
                 is_lefebvre = "Lefebvre" in d['Nom']
                 border_style = "border: 2px solid #5551FF; background-color: rgba(85, 81, 255, 0.03);" if is_lefebvre else ""
                 
+                # Checkbox dynamique propre à chaque fiche d'expert pour joindre ou non les preuves d'audit
+                include_proofs = st.checkbox(f"Joindre les preuves d'audit d'anomalies de salaire pour {d['Nom']}", value=(st.session_state.get('analysis_results') is not None), key=f"chk_proof_{d['Nom']}")
+                
                 # Récupération du lien d'envoi de mail prérempli contextuel selon l'échange avec Eagle
-                mailto_link = generate_prefilled_mail_link(d['Nom'], d['Email'])
+                mailto_link = generate_prefilled_mail_link(d['Nom'], d['Email'], include_proofs=include_proofs)
                 
                 st.markdown(
                     f"""
@@ -964,7 +966,7 @@ def main_app():
                         <strong style="color: #5551FF; font-size: 1.1rem;">📍 {d['Nom']}</strong><br>
                         <span style="font-size:0.85rem; color:#6B7280;">({d['Type']}) — {d['Adresse']}</span><br>
                         <p style="font-size:0.9rem; margin-top:5px; line-height:1.4;">{d['Desc']}</p>
-                        <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+                        <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <strong style="font-size:0.9rem; color:#1E203B;">📞 {d['Contact']}</strong>
                             <a href="{mailto_link}" target="_blank" style="
                                 text-decoration: none;
@@ -975,7 +977,7 @@ def main_app():
                                 font-size: 0.8rem;
                                 font-weight: 600;
                                 transition: background-color 0.2s;
-                            ">✉️ Envoyer mon dossier (E-mail pré-rempli)</a>
+                            ">✉️ Ouvrir ma boîte mail (Courrier pré-rempli)</a>
                         </div>
                     </div>
                     """, unsafe_allow_html=True
