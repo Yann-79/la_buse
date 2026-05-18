@@ -12,8 +12,8 @@ from datetime import datetime
 # # Application Structure Plan: 
 # # La structure de l'application est calquée fidèlement sur la Photo 2.
 # # Elle comprend :
-# # 1. Une barre latérale gauche pour naviguer de manière stable (sans l'onglet Convention Collective).
-# # 2. Un panneau central large pour le flux principal (carrousel, recherche, dalles d'actions).
+# # 1. Une barre latérale gauche pour naviguer de manière stable (sans les onglets désactivés).
+# # 2. Un panneau central large pour le flux principal (carrousel, recherche, dalles d'actions, réassurance).
 # # 3. Un panneau droit pour les outils rapides et le paramétrage interactif de l'accessibilité.
 # # Cette architecture asymétrique garantit une lisibilité maximale et évite toute interférence de rendu DOM.
 
@@ -68,69 +68,45 @@ EXPERT_DIRECTORY = [
     {"Type": "Défenseur des Droits", "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", "Contact": "05 49 04 00 00", "Adresse": "10 Rue du Tribunal, 79000 Niort", "lat": 46.3242, "lon": -0.4645, "Desc": "Médiateur de proximité pour la défense de vos libertés individuelles au travail."}
 ]
 
-# --- DESIGN HTML/CSS LOGO DE LA CHOUETTE (SANS SVG EXTERNE - PHOTO 2) ---
+# --- DESIGN PREMIUM LOGO DE LA CHOUETTE (PHOTO 2) ---
 CHOUETTE_LOGO_HTML = """
-<div style="display: flex; justify-content: center; margin-bottom: 20px;">
+<div style="display: flex; justify-content: center; margin-bottom: 25px;">
     <div style="
-        width: 110px; height: 110px; 
-        background-color: #E8E7FF; 
+        width: 140px; height: 140px; 
+        background: radial-gradient(circle, #E8E7FF 0%, #C3BFFF 100%); 
         border-radius: 50%; 
         position: relative; 
-        box-shadow: 0 8px 24px rgba(85, 81, 255, 0.2);
+        box-shadow: 0 10px 30px rgba(85, 81, 255, 0.25);
         display: flex; align-items: center; justify-content: center;
     ">
-        <!-- Oreilles -->
-        <div style="position: absolute; top: -5px; left: 15px; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 30px solid #5551FF; transform: rotate(-15deg);"></div>
-        <div style="position: absolute; top: -5px; right: 15px; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 30px solid #5551FF; transform: rotate(15deg);"></div>
-        <!-- Corps de l'oiseau -->
-        <div style="width: 75px; height: 85px; background-color: #5551FF; border-radius: 50% 50% 45% 45%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-            <!-- Ventre Blanc -->
-            <div style="position: absolute; bottom: -5px; width: 55px; height: 55px; background-color: #FFFFFF; border-radius: 50%;"></div>
+        <!-- Oreilles Stylisées -->
+        <div style="position: absolute; top: 12px; left: 28px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 35px solid #5551FF; transform: rotate(-18deg);"></div>
+        <div style="position: absolute; top: 12px; right: 28px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 35px solid #5551FF; transform: rotate(18deg);"></div>
+        <!-- Corps principal de la chouette de la Photo 2 -->
+        <div style="width: 90px; height: 105px; background-color: #5551FF; border-radius: 50% 50% 45% 45%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <!-- Ventre Blanc / Lavande -->
+            <div style="position: absolute; bottom: -8px; width: 70px; height: 70px; background-color: #F4F5FC; border-radius: 50%;"></div>
         </div>
-        <!-- Yeux -->
-        <div style="position: absolute; top: 32px; left: 24px; width: 30px; height: 30px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="width: 14px; height: 14px; background-color: #1E203B; border-radius: 50%; position: relative;">
-                <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+        <!-- Yeux Expressifs avec reflets réalistes de la Photo 2 -->
+        <div style="position: absolute; top: 40px; left: 32px; width: 38px; height: 38px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);">
+            <div style="width: 22px; height: 22px; background-color: #574B3C; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 12px; height: 12px; background-color: #1E203B; border-radius: 50%; position: relative;">
+                    <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+                </div>
             </div>
         </div>
-        <div style="position: absolute; top: 32px; right: 24px; width: 30px; height: 30px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="width: 14px; height: 14px; background-color: #1E203B; border-radius: 50%; position: relative;">
-                <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+        <div style="position: absolute; top: 40px; right: 32px; width: 38px; height: 38px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);">
+            <div style="width: 22px; height: 22px; background-color: #574B3C; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 12px; height: 12px; background-color: #1E203B; border-radius: 50%; position: relative;">
+                    <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+                </div>
             </div>
         </div>
-        <!-- Bec Orange -->
-        <div style="position: absolute; top: 56px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 12px solid #FF9F43; z-index: 10;"></div>
+        <!-- Bec Orange Triangle -->
+        <div style="position: absolute; top: 68px; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 15px solid #FF9F43; z-index: 10;"></div>
     </div>
 </div>
 """
-
-# Données pour le carrousel d'informations
-CAROUSEL_ITEMS = [
-    {
-        "titre": "🛡️ Votre santé est une priorité absolue",
-        "description": "L'employeur est légalement tenu de protéger votre santé physique et mentale (Article L4121-1 du Code du travail). Ne restez pas isolé face aux pressions managériales.",
-        "badge": "Prévention RPS"
-    },
-    {
-        "titre": "📈 Déplafonnement de prime Infinity V4",
-        "description": "Atteignez les paliers de bonus de 20% à 100% en surveillant votre écart de CA magasin par rapport au seuil de référence de 1300 €.",
-        "badge": "Primes & Salaires"
-    },
-    {
-        "titre": "⚖️ Droits & Prévoyance du Salarié",
-        "description": "Bénéficiez de grilles de salaires garanties, de majorations pour heures de nuit et de garanties de prévoyance spécifiques selon vos accords.",
-        "badge": "Vos Droits"
-    }
-]
-
-# --- FONCTION DE CALCUL DE DISTANCE (HAVERSINE) ---
-def haversine_distance(lat1, lon1, lat2, lon2):
-    R = 6371.0
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
 
 # --- SYSTEM DESIGN ET LECTEUR D'ACCESSIBILITÉ ---
 def apply_ui_design_and_hover_tts():
@@ -144,7 +120,7 @@ def apply_ui_design_and_hover_tts():
         text_secondary = "#FFFF00"
         border_color = "#FFFF00"
         sidebar_text_color = "#FFFFFF"
-    else:  # Light Mode de la Maquette (Photo 2)
+    else:  # Light Mode de la Maquette Premium (Photo 2)
         bg_color = "#F4F5FC"
         card_bg = "#FFFFFF"
         text_primary = "#1E203B"
@@ -152,8 +128,7 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Script d'accessibilité vocale au survol (Web Speech API) EXACTEMENT fourni par l'utilisateur.
-    # Intégré proprement dans un tag <script> natif pour une performance et une compatibilité parfaites.
+    # Injection textuelle de votre script d'accessibilité vocale au survol (Web Speech API)
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = r"""
@@ -265,7 +240,7 @@ def apply_ui_design_and_hover_tts():
         </script>
         """
 
-    # Forçage CSS pour garantir une visibilité totale de la sidebar et des éléments (Plus d'invisibilité)
+    # Forçage CSS pour garantir l'aspect graphique asymétrique et épuré de la maquette (Photo 2)
     st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -276,7 +251,7 @@ def apply_ui_design_and_hover_tts():
         font-family: 'Inter', sans-serif;
     }}
     
-    /* FORCE la visibilité du texte dans la sidebar (Évite le blanc sur blanc) */
+    /* Menu Latéral Premium */
     section[data-testid="stSidebar"] {{
         background-color: {card_bg} !important;
         border-right: 1px solid {border_color} !important;
@@ -300,12 +275,12 @@ def apply_ui_design_and_hover_tts():
         font-weight: 500 !important;
     }}
 
-    /* Cartes de contenu blanches de la maquette et stylisation des dalles de bordure native */
+    /* Dalles, Cartes et Blocs de Contenu modernisés */
     .buse-card, div[data-testid="stVerticalBlockBorder"] {{
         background-color: {card_bg} !important;
-        border-radius: 16px !important;
-        padding: 24px !important;
-        margin-bottom: 20px !important;
+        border-radius: 20px !important;
+        padding: 26px !important;
+        margin-bottom: 22px !important;
         border: 1px solid {border_color} !important;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02) !important;
         transition: transform 0.2s, box-shadow 0.2s !important;
@@ -317,11 +292,12 @@ def apply_ui_design_and_hover_tts():
     }}
     
     .buse-title-primary {{
-        font-size: 2.2rem;
-        font-weight: 700;
-        line-height: 1.2;
+        font-size: 2.6rem;
+        font-weight: 800;
+        line-height: 1.25;
         color: {text_primary};
         margin-bottom: 12px;
+        letter-spacing: -0.025em;
     }}
     
     .buse-highlight {{
@@ -329,18 +305,18 @@ def apply_ui_design_and_hover_tts():
     }}
     
     .buse-subtitle {{
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         color: {text_secondary};
         margin-bottom: 30px;
     }}
     
-    /* Boutons stylisés Maquette */
+    /* Boutons premium arrondis */
     .stButton>button {{
         background-color: {accent_color} !important;
         color: white !important;
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         border: none !important;
-        padding: 12px 24px !important;
+        padding: 14px 28px !important;
         font-weight: 600 !important;
         transition: background-color 0.2s !important;
         width: 100% !important;
@@ -351,53 +327,48 @@ def apply_ui_design_and_hover_tts():
         color: white !important;
     }}
     
-    .mascotte-logo-container {{
-        text-align: center;
-        margin-bottom: 30px;
-    }}
-    
-    /* Styles spécifiques pour le carrousel d'informations */
+    /* Carrousel d'Actualités */
     .carousel-container {{
         background-color: {card_bg};
-        border-radius: 16px;
-        padding: 24px;
-        margin-bottom: 20px;
-        border: 1px solid {accent_color};
-        box-shadow: 0 6px 25px rgba(85, 81, 255, 0.06);
+        border-radius: 20px;
+        padding: 26px;
+        margin-bottom: 22px;
+        border: 1px solid {border_color};
+        box-shadow: 0 6px 25px rgba(85, 81, 255, 0.05);
         position: relative;
     }}
     
     .carousel-badge {{
         background-color: rgba(85, 81, 255, 0.1);
         color: {accent_color};
-        padding: 6px 12px;
+        padding: 6px 14px;
         border-radius: 50px;
         font-size: 0.8rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
         display: inline-block;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
     }}
     
     .carousel-title {{
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: {text_primary};
         margin-bottom: 8px;
     }}
     
     .carousel-desc {{
-        font-size: 0.95rem;
+        font-size: 0.98rem;
         color: {text_secondary};
-        line-height: 1.5;
-        margin-bottom: 20px;
+        line-height: 1.6;
+        margin-bottom: 22px;
     }}
 
-    /* Pied de page stylise */
+    /* Pied de page stylisé */
     .buse-footer {{
-        margin-top: 50px;
-        padding: 20px 0;
+        margin-top: 60px;
+        padding: 25px 0;
         border-top: 1px solid {border_color};
         text-align: center;
         font-size: 0.8rem;
@@ -425,11 +396,10 @@ def render_footer_credits():
         unsafe_allow_html=True
     )
 
-# --- CONSOLE EXPERTE DE RÉPONSES LOCALES IDCC 1517 & RPS ---
+# --- CONSOLE EXPERTE DE RÉPONSES LOCALES ---
 def call_eagle_ia_local(prompt, context=""):
     p_lower = prompt.lower()
     
-    # Système de réponses d'experts (Droit du travail & Code du Travail)
     if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower:
         return (
             "🛡️ **PROTOCOLE DE PROTECTION DES SALARIÉS & GESTION RPS ACTIVÉ**\n\n"
@@ -469,7 +439,7 @@ def call_eagle_ia_local(prompt, context=""):
         )
 
 def generate_browser_speech_widget(text):
-    """Génère un widget d'élocution native et fluide pour l'Agent Eagle (Sans API externe)"""
+    """Génère un widget d'élocution native et fluide pour l'Agent Eagle"""
     clean_text = text.replace('"', '\\"').replace('\n', ' ')
     html_code = f"""
     <button onclick="
@@ -508,49 +478,45 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
 def main_app():
     apply_ui_design_and_hover_tts()
     
-    # Retrait complet de la rubrique "Code du travail" (Convention Collective) pour simplifier le menu
+    # Navigation épurée avec "Mes documents" désactivé
     menu_items = [
         "Accueil",
         "Eagle Agent (IA & RPS)",
         "Analyse & Audit",
         "Réseau Sentinelles",
-        "Calculateur de primes",
-        "Mes documents"
+        "Calculateur de primes"
     ]
 
     with st.sidebar:
-        # En-tête de la sidebar avec la chouette et le nom de l'application
+        # En-tête de la barre latérale modernisé
         st.markdown(
             f"""
             <div style='display: flex; align-items: center; justify-content: center; margin-bottom: 25px;'>
-                <div style='display: inline-block; width: 40px; height: 40px; background-color: #E8E7FF; border-radius: 50%; position: relative; margin-right: 10px; vertical-align: middle;'>
-                    <div style='position: absolute; top: 10px; left: 8px; width: 8px; height: 8px; background-color: #5551FF; border-radius: 50%;'></div>
-                    <div style='position: absolute; top: 10px; right: 8px; width: 8px; height: 8px; background-color: #5551FF; border-radius: 50%;'></div>
-                    <div style='position: absolute; bottom: 6px; left: 15px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 8px solid #FF9F43;'></div>
+                <div style='display: inline-block; width: 44px; height: 44px; background-color: #E8E7FF; border-radius: 50%; position: relative; margin-right: 12px; vertical-align: middle;'>
+                    <div style='position: absolute; top: 12px; left: 10px; width: 8px; height: 8px; background-color: #5551FF; border-radius: 50%;'></div>
+                    <div style='position: absolute; top: 12px; right: 10px; width: 8px; height: 8px; background-color: #5551FF; border-radius: 50%;'></div>
+                    <div style='position: absolute; bottom: 8px; left: 17px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 8px solid #FF9F43;'></div>
                 </div>
-                <span style='color:#5551FF; font-size:1.8rem; font-weight:700; vertical-align: middle;'>la buse</span>
+                <span style='color:#5551FF; font-size:1.85rem; font-weight:800; vertical-align: middle; letter-spacing: -0.03em;'>la buse</span>
             </div>
             """, 
             unsafe_allow_html=True
         )
         
-        # Navigation synchronisée d'une simplicité et d'une stabilité absolues
-        nav_init = st.session_state.get('sidebar_nav_v8', "Accueil")
-        if nav_init not in menu_items:
-            nav_init = "Accueil"
-            
-        nav = st.radio("MENU", menu_items, index=menu_items.index(nav_init), key="sidebar_radio_selection_v8")
-        
-        # Met à jour la variable d'état
+        nav = st.radio("MENU", menu_items, key="sidebar_radio_selection_v8")
         st.session_state['sidebar_nav_v8'] = nav
         
         st.markdown("---")
-        st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
-        st.session_state['non_voyant'] = st.toggle("♿ Mode non voyant", value=st.session_state.get('non_voyant', False), key="tg_non_voyant_v8")
-        st.session_state['audio_on_hover'] = st.toggle("🔊 Audio au survol", value=st.session_state.get('audio_on_hover', True), key="tg_audio_hover_v8")
-        st.session_state['high_contrast'] = st.toggle("🌓 Contraste élevé", value=st.session_state.get('high_contrast', False), key="tg_contrast_v8")
+        # Badge d'abonnement actif (Photo 2)
+        st.markdown(
+            """
+            <div class='buse-card' style='padding: 16px !important; margin-bottom: 15px !important;'>
+                <span style='font-size: 0.8rem; font-weight: 700; color: #5551FF; display: block; margin-bottom: 4px;'>👑 La buse Pro</span>
+                <span style='font-size: 0.75rem; color: #6B7280;'>Abonnement actif</span>
+            </div>
+            """, unsafe_allow_html=True
+        )
         
-        st.markdown("---")
         if st.button("DÉCONNEXION", key="btn_logout_main_v8"):
             st.session_state['auth'] = False
             st.session_state['loading_complete'] = False
@@ -564,11 +530,12 @@ def main_app():
         current_nav = st.session_state.get('sidebar_nav_v8', "Accueil")
         
         if current_nav == "Accueil":
+            # Section d'accueil fidèle à la mise en page de la Photo 2
             col_text, col_mascotte = st.columns([2, 1])
             with col_text:
                 st.markdown(
                     """
-                    <h1 class='buse-title-primary' data-tts="La buse, votre moteur de recherche et d'accompagnement au service du monde du travail.">
+                    <h1 class='buse-title-primary' data-tts="La buse, votre moteur de recherche au service du monde du travail.">
                         La buse, votre moteur <br>de recherche au service <br><span class='buse-highlight'>du monde du travail.</span>
                     </h1>
                     <p class='buse-subtitle'>Posez vos questions, analysez vos documents, comprenez vos droits et passez à l'action.</p>
@@ -576,25 +543,24 @@ def main_app():
                     unsafe_allow_html=True
                 )
             with col_mascotte:
-                # Mascotte Chouette violette HTML/CSS
                 st.markdown(CHOUETTE_LOGO_HTML, unsafe_allow_html=True)
                 
-            # Formulaire de question d'accueil (Sûr, rapide, pas de freeze)
+            # Formulaire de question d'accueil (Photo 2)
             with st.form("home_search_form", clear_on_submit=True):
-                search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Ex : Puis-je refuser des heures supplémentaires ?")
+                search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Posez votre question sur le droit du travail...")
                 submit_q = st.form_submit_button("Lancer la recherche")
                 
                 if submit_q and search_q:
                     response = call_eagle_ia_local(search_q)
                     st.session_state['ai_history'].append({"q": search_q, "a": response})
-                    st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"  # Redirection immédiate
+                    st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
                     safe_rerun()
                 
-            st.markdown("<p style='font-weight: 500; font-size: 0.95rem; margin-top: 15px;'>Suggestions rapides :</p>", unsafe_allow_html=True)
+            st.markdown("<p style='font-weight: 600; font-size: 0.95rem; margin-top: 15px;'>Suggestions rapides :</p>", unsafe_allow_html=True)
             suggestions = [
                 "Puis-je refuser des heures supplémentaires ?",
-                "Que faire en cas de harcèlement au travail ?",
-                "Mon employeur peut-il modifier mon contrat sans mon accord ?"
+                "Quelles sont mes indemnités en cas de licenciement ?",
+                "Mon employeur peut-il modifier mon contrat ?"
             ]
             cols_sug = st.columns(3)
             for idx, sug in enumerate(suggestions):
@@ -602,15 +568,13 @@ def main_app():
                     if st.button(sug, key=f"sug_btn_{idx}_v8"):
                         response = call_eagle_ia_local(sug)
                         st.session_state['ai_history'].append({"q": sug, "a": response})
-                        st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"  # Redirection immédiate
+                        st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
                         safe_rerun()
 
             # --- CARROUSEL D'INFORMATIONS INTERACTIF ---
-            st.markdown("<h3 style='margin-top: 25px;'>Actualités & Informations Clés</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='margin-top: 30px; font-weight: 700; letter-spacing: -0.02em;'>Actualités & Informations Clés</h3>", unsafe_allow_html=True)
             
-            # Récupération de l'élément actif du carrousel
             current_item = CAROUSEL_ITEMS[st.session_state.get('carousel_index', 0)]
-            
             st.markdown(
                 f"""
                 <div class="carousel-container">
@@ -622,29 +586,29 @@ def main_app():
                 unsafe_allow_html=True
             )
             
-            # Contrôles de navigation du carrousel
             col_prev, col_spacer, col_next = st.columns([1, 4, 1])
             with col_prev:
                 if st.button("⬅️ Précédent", key="carousel_prev"):
                     st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) - 1) % len(CAROUSEL_ITEMS)
                     safe_rerun()
-            with st.button("Suivant ➡️", key="carousel_next"):
-                st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) + 1) % len(CAROUSEL_ITEMS)
-                safe_rerun()
+            with col_next:
+                if st.button("Suivant ➡️", key="carousel_next"):
+                    st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) + 1) % len(CAROUSEL_ITEMS)
+                    safe_rerun()
 
             # Les 4 dalles d'actions principales de la Photo 2
-            st.markdown("<h3 style='margin-top: 35px;'>Ce que La buse peut faire pour vous</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='margin-top: 40px; font-weight: 700;'>Ce que La buse peut faire pour vous</h3>", unsafe_allow_html=True)
             grid_col1, grid_col2 = st.columns(2)
             with grid_col1:
                 st.markdown(
                     """
-                    <div class='buse-card' data-tts="Eagle Agent. Posez vos questions de droit du travail.">
-                        <h4 class='buse-highlight'>Eagle Agent</h4>
-                        <p style='font-size:0.9rem; color:#6B7280;'>Posez toutes vos questions sur le droit du travail et obtenez des réponses fiables.</p>
+                    <div class='buse-card' data-tts="Eagle Agent. Posez vos questions de droit du travail et obtenez des réponses.">
+                        <h4 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 8px;">Eagle Agent <span style="font-size: 0.8rem; background-color: rgba(85, 81, 255, 0.1); color: #5551FF; padding: 2px 8px; border-radius: 50px; font-weight: 700; margin-left: 6px;">IA</span></h4>
+                        <p style='font-size:0.92rem; color:#6B7280; line-height: 1.5;'>Posez toutes vos questions sur le droit du travail et obtenez des réponses fiables, sourcées et personnalisées.</p>
                     </div>
-                    <div class='buse-card' data-tts="Réseau Sentinelles. Être mis en relation avec des délégués.">
-                        <h4 class='buse-highlight'>Réseau Sentinelles</h4>
-                        <p style='font-size:0.9rem; color:#6B7280;'>Soyez mis en relation avec des délégués et des juristes spécialisés.</p>
+                    <div class='buse-card' data-tts="Réseau Sentinelles. Être mis en relation avec des délégués de proximité.">
+                        <h4 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 8px;">Réseau Sentinelles</h4>
+                        <p style='font-size:0.92rem; color:#6B7280; line-height: 1.5;'>Être mis en relation avec des délégués syndicaux ou des avocats spécialisés dans votre région.</p>
                     </div>
                     """, unsafe_allow_html=True
                 )
@@ -652,17 +616,78 @@ def main_app():
                 st.markdown(
                     """
                     <div class='buse-card' data-tts="Analyse CV et Audit. Détectez les anomalies de contrat.">
-                        <h4 class='buse-highlight'>Analyse CV & Audit</h4>
-                        <p style='font-size:0.9rem; color:#6B7280;'>Détectez les anomalies, comparez votre contrat au Code du travail.</p>
+                        <h4 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 8px;">Analyse CV & Audit</h4>
+                        <p style='font-size:0.92rem; color:#6B7280; line-height: 1.5;'>Détectez les anomalies, comparez votre contrat de travail avec les conventions collectives.</p>
                     </div>
-                    <div class='buse-card' data-tts="Calculateur de primes. Estimez vos primes Infinity.">
-                        <h4 class='buse-highlight'>Calculateur de primes</h4>
-                        <p style='font-size:0.9rem; color:#6B7280;'>Estimez vos primes, indemnités et avantages selon votre situation.</p>
+                    <div class='buse-card' data-tts="Calculateur de primes. Estimez vos primes et salaires.">
+                        <h4 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 8px;">Calculateur de primes</h4>
+                        <p style='font-size:0.92rem; color:#6B7280; line-height: 1.5;'>Estimez vos primes (Infinity V4), vos indemnités de départ et vos salaires nets.</p>
                     </div>
                     """, unsafe_allow_html=True
                 )
 
-        elif current_nav == "Eagle Agent (IA & RPS)":  # Eagle Agent (IA & RPS)
+            # Bannière d'Action (Photo 2)
+            st.markdown(
+                """
+                <div class="carousel-container" style="background: linear-gradient(135deg, #5551FF 0%, #3D39E6 100%); color: white; border: none;">
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <span style="font-size: 2.2rem;">🛡️</span>
+                        <div>
+                            <h3 style="font-size: 1.4rem; font-weight: 700; color: white; margin-bottom: 4px;">Vos droits. Notre mission.</h3>
+                            <p style="font-size: 0.92rem; color: rgba(255, 255, 255, 0.85); margin-bottom: 12px;">La buse vous aide à comprendre, vérifier et défendre vos droits au travail en toute sécurité.</p>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True
+            )
+            if st.button("Découvrir toutes les fonctionnalités", key="btn_discover_features_v8"):
+                st.toast("Toutes les fonctionnalités premium sont actives.")
+
+            # Section Réassurance bas de page (Photo 2)
+            st.markdown("---")
+            reass_col1, reass_col2, reass_col3, reass_col4 = st.columns(4)
+            with reass_col1:
+                st.markdown(
+                    """
+                    <div style="text-align: center; padding: 10px;" data-tts="Fiable et source">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">🛡️</span>
+                        <strong style="font-size: 0.85rem; display: block; margin-bottom: 2px;">Fiable & sourcé</strong>
+                        <span style="font-size: 0.75rem; color: #6B7280; display: block;">Bases sur la loi</span>
+                    </div>
+                    """, unsafe_allow_html=True
+                )
+            with reass_col2:
+                st.markdown(
+                    """
+                    <div style="text-align: center; padding: 10px;" data-tts="Confidentiel">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">🔒</span>
+                        <strong style="font-size: 0.85rem; display: block; margin-bottom: 2px;">Confidentiel</strong>
+                        <span style="font-size: 0.75rem; color: #6B7280; display: block;">Données protégées</span>
+                    </div>
+                    """, unsafe_allow_html=True
+                )
+            with reass_col3:
+                st.markdown(
+                    """
+                    <div style="text-align: center; padding: 10px;" data-tts="A jour">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">📅</span>
+                        <strong style="font-size: 0.85rem; display: block; margin-bottom: 2px;">À jour</strong>
+                        <span style="font-size: 0.75rem; color: #6B7280; display: block;">Mises à jour régulières</span>
+                    </div>
+                    """, unsafe_allow_html=True
+                )
+            with reass_col4:
+                st.markdown(
+                    """
+                    <div style="text-align: center; padding: 10px;" data-tts="Accessible a tous">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">👥</span>
+                        <strong style="font-size: 0.85rem; display: block; margin-bottom: 2px;">Accessible à tous</strong>
+                        <span style="font-size: 0.75rem; color: #6B7280; display: block;">Zéro barrière</span>
+                    </div>
+                    """, unsafe_allow_html=True
+                )
+
+        elif current_nav == "Eagle Agent (IA & RPS)":
             st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             
@@ -674,7 +699,6 @@ def main_app():
                     with st.spinner("Analyse sémantique..."):
                         response = call_eagle_ia_local(user_input, st.session_state.get('analysis_results', None))
                         st.session_state['ai_history'].append({"q": user_input, "a": response})
-                        # Rerun non requis pour les formulaires Streamlit natifs
             st.markdown("</div>", unsafe_allow_html=True)
 
             for idx, chat in enumerate(reversed(st.session_state.get('ai_history', []))):
@@ -682,7 +706,7 @@ def main_app():
                     st.markdown(chat['a'])
                     generate_browser_speech_widget(chat['a'])
 
-        elif current_nav == "Analyse & Audit":  # Analyse & Audit
+        elif current_nav == "Analyse & Audit":
             st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit Documentaire</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             doc_uploaded = st.file_uploader("Importer une fiche de paie ou un contrat", type=["pdf", "png", "jpg"], key="uploader_audit_v8")
@@ -692,7 +716,7 @@ def main_app():
                     st.success("Audit complété !")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif current_nav == "Réseau Sentinelles":  # Réseau Sentinelles
+        elif current_nav == "Réseau Sentinelles":
             st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
             df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
             st.map(df_sentinelles)
@@ -701,7 +725,7 @@ def main_app():
                 st.write(f"📍 **{d['Nom']}** ({d['Type']}) — `Téléphone : {d['Contact']}`")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif current_nav == "Calculateur de primes":  # Calculateur de primes
+        elif current_nav == "Calculateur de primes":
             st.markdown("<h2 class='glow-text'>💎 Calculateur de Primes & Salaire</h2>", unsafe_allow_html=True)
             col_inf, col_sal = st.columns(2)
             with col_inf:
@@ -724,34 +748,36 @@ def main_app():
                 st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        elif current_nav == "Mes documents":  # Mes documents
-            st.markdown("<h2 class='glow-text'>📂 Mes documents</h2>", unsafe_allow_html=True)
-            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            st.code("📄 contrat_de_travail.pdf\n📄 avenant_infinity_v4.pdf", language="text")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # Pied de page systematique avec Mentions Legales et Copyright en bas de chaque rubrique
+        # Pied de page systématique avec mentions légales (Photo 2)
         render_footer_credits()
 
-    # 2. PANNEAU DE DROITE (Fidèle à la photo 2)
+    # --- PANNEAU DE DROITE (ACCÈS RAPIDE, ACCESSIBILITÉ & AIDE) ---
     with col_right_pane:
-        st.markdown("<h4 class='glow-text' style='margin-bottom:15px;'>Outils rapides</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 class='glow-text' style='margin-bottom:15px; font-weight: 700; color: #1E203B;'>Outils rapides</h4>", unsafe_allow_html=True)
         st.markdown(
             """
-            <div class='buse-card' style='padding: 15px;'>
-                <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>📄 Analyser mon CV</p>
-                <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>⚖️ Comparer mon contrat</p>
-                <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>🔍 Consulter mes droits</p>
-                <p style='margin-bottom:8px; font-weight:500; font-size:0.9rem;'>💎 Simuler une prime</p>
+            <div class='buse-card' style='padding: 18px !important; margin-bottom: 20px !important;'>
+                <p style='margin-bottom:12px; font-weight:600; font-size:0.9rem; cursor: pointer;'>📄 Analyser mon CV</p>
+                <p style='margin-bottom:12px; font-weight:600; font-size:0.9rem; cursor: pointer;'>⚖️ Comparer mon contrat</p>
+                <p style='margin-bottom:12px; font-weight:600; font-size:0.9rem; cursor: pointer;'>🔍 Consulter mes droits</p>
+                <p style='margin-bottom:0px; font-weight:600; font-size:0.9rem; cursor: pointer;'>💎 Simuler une prime</p>
             </div>
             """, unsafe_allow_html=True
         )
         
-        st.markdown("<h4 class='glow-text' style='margin-bottom:15px;'>Besoin d'aide ?</h4>", unsafe_allow_html=True)
+        # Panneau d'accessibilité vocale de la Photo 2
+        st.markdown("<h4 class='glow-text' style='margin-bottom:15px; font-weight: 700; color: #1E203B;'>Accessibilité</h4>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.session_state['non_voyant'] = st.toggle("♿ Mode non voyant", value=st.session_state.get('non_voyant', False), key="tg_non_voyant_v9")
+            st.session_state['audio_on_hover'] = st.toggle("🔊 Audio au survol", value=st.session_state.get('audio_on_hover', True), key="tg_audio_hover_v9")
+            st.session_state['high_contrast'] = st.toggle("🌓 Contraste élevé", value=st.session_state.get('high_contrast', False), key="tg_contrast_v9")
+            st.session_state['transcription_audio'] = st.toggle("📝 Transcription audio", value=st.session_state.get('transcription_audio', False), key="tg_trans_v9")
+            
+        st.markdown("<h4 class='glow-text' style='margin-bottom:15px; font-weight: 700; color: #1E203B;'>Besoin d'aide ?</h4>", unsafe_allow_html=True)
         st.markdown(
             """
-            <div class='buse-card' style='padding: 15px;'>
-                <p style='font-size:0.85rem; color:#6B7280; margin-bottom:10px;'>Nos experts du réseau Sentinelles sont à votre écoute.</p>
+            <div class='buse-card' style='padding: 18px !important; margin-bottom: 15px !important;'>
+                <p style='font-size:0.85rem; color:#6B7280; margin-bottom:12px; line-height: 1.5;'>Nos experts du réseau Sentinelles sont à votre écoute immédiate.</p>
             </div>
             """, unsafe_allow_html=True
         )
@@ -783,7 +809,7 @@ if not st.session_state.get('auth', False):
         # Logo chouette inséré au-dessus du formulaire (Photo 2)
         st.markdown(CHOUETTE_LOGO_HTML, unsafe_allow_html=True)
         with st.container(border=True):
-            st.markdown("<h2 class='glow-text' style='text-align:center; font-family:Inter; color:#1E203B;'>Accès sécurisé</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 class='glow-text' style='text-align:center; font-family:Inter; color:#1E203B; font-weight:700;'>Accès sécurisé</h2>", unsafe_allow_html=True)
             pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v8")
             if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
                 if pin == "1234":
