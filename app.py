@@ -65,6 +65,8 @@ if 'focus_expert' not in st.session_state:
     st.session_state['focus_expert'] = None
 if 'pending_query' not in st.session_state:
     st.session_state['pending_query'] = None
+if 'home_query_answer' not in st.session_state:
+    st.session_state['home_query_answer'] = None
 
 # --- DONNÉES DU CARROUSEL D'ACCUEIL ---
 CAROUSEL_ITEMS = [
@@ -85,7 +87,7 @@ CAROUSEL_ITEMS = [
     }
 ]
 
-# --- BASE DE DONNÉES ENRICHIE DES EXPERTS DE PROXIMITÉ (AVEC E-MAILS DE SERVICE DIRECT) ---
+# --- BASE DE DONNÉES ENRICHIE DES EXPERTS DE PROXIMITÉ (AVOCATS & SYNDICATS) ---
 EXPERT_DIRECTORY = [
     {
         "Type": "Avocat Spécialisé", 
@@ -508,7 +510,7 @@ def call_eagle_ia_local(prompt, context=""):
                 "2. La moyenne des **3 derniers mois** (les primes exceptionnelles ou annuelles versées durant cette période sont prises en compte au prorata).\n\n"
                 "### 3. Les démarches prioritaires recommandées par Grok\n"
                 "- **Vérifier l'existence de clauses conventionnelles plus favorables** auprès d'un expert de votre région.\n"
-                "- Rassembler tous vos bulletins de paie et votre contrat initial de travail avant tout rendez-vous officiel."
+                "- Rassembler tous vos bulletins de paie et votre contrat de travail."
             )
         else:
             return (
@@ -518,7 +520,7 @@ def call_eagle_ia_local(prompt, context=""):
                 "- Atteinte potentielle à l'Article L4121-1 du Code du travail concernant l'obligation légale de protection de la santé mentale et physique.\n"
                 "- Manquement suspecté aux règles de prévention des risques psychosociaux (RPS).\n\n"
                 "### Protocole recommandé :\n"
-                "1. **Consignez de manière écrite tous les faits :** Prenez des notes détaillées (faits précis, dates, heures, propos tenus, collègues présents ou témoins éventuels).\n"
+                "1. **Consignez de manière écrite tous les faits :** Prenez des notes détaillées (faits précis, dates, heures, propos tenus, témoins).\n"
                 "2. **Alertez l'employeur ou son représentant :** Rappelez son obligation de sécurité.\n"
                 "3. **Contactez la Médecine du Travail :** Sollicitez une visite médicale de votre propre initiative."
             )
@@ -540,7 +542,7 @@ def call_eagle_ia_local(prompt, context=""):
             "### Anomalies et Non-respect détectés :\n"
             "- Suspicion de non-respect de la plage horaire légale de nuit (21h00 - 6h00) sans compensation ni majoration salariale de 25% minimum.\n\n"
             "### Vos garanties réglementaires :\n"
-            "- Les heures effectuées durant la période de nuit ouvrent droit à des compensations sous forme de repos compensateur ou de majoration de salaire selon les accords de branche applicables."
+            "- Les heures effectuées durant la période de nuit ouvrent droit à des compensations sous forme de repos compensateur ou de majoration de salaire."
         )
     elif "lefebvre" in p_lower:
         return (
@@ -597,7 +599,7 @@ def generate_browser_speech_widget(text):
     """
     st.components.v1.html(html_code, height=65)
 
-# --- CONSTRUCTEUR DE MAIL AUTOMATIQUE SÉCURISÉ (CONFORME À LA LOI) ---
+# --- CONSTRUCTEUR DE MAIL AUTOMATIQUE SÉCURISÉ ---
 def generate_prefilled_mail_link(expert_name, expert_email, include_proofs=False):
     history = st.session_state.get('ai_history', [])
     last_query = ""
@@ -678,6 +680,7 @@ def main_app():
             unsafe_allow_html=True
         )
         
+        # Le routage se base de façon stable et synchrone sur l'état de session
         nav = st.radio("MENU", menu_items, index=menu_items.index(st.session_state['sidebar_nav_v8']), key="sidebar_radio_selection_v8")
         st.session_state['sidebar_nav_v8'] = nav
         
@@ -741,8 +744,50 @@ def main_app():
                 submit_q = st.form_submit_button("Lancer la recherche")
                 
                 if submit_q and search_q:
+                    # Enregistrement dans la file d'attente sémantique pour traitement interne immédiat sur l'Accueil
                     st.session_state['pending_query'] = search_q
-                    st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
+                    safe_rerun()
+
+            # --- GESTION ET ANIMATION DE RECHERCHE DIRECTEMENT SUR L'ACCUEIL ---
+            pending = st.session_state.get('pending_query')
+            if pending:
+                st.session_state['pending_query'] = None # Vide la file d'attente
+                
+                # Écran / Animation de chargement progressive de Grok AI le temps de générer la réponse
+                with st.spinner("⚡ Recherche Grok AI en direct..."):
+                    progress_placeholder = st.empty()
+                    steps = [
+                        "🔍 Exploration sémantique de la base de données...",
+                        "⚖️ Interrogation des sources réglementaires & jurisprudences...",
+                        "📊 Analyse comparative de votre situation...",
+                        "⚡ Structuration de l'avis de conformité..."
+                    ]
+                    for step in steps:
+                        progress_placeholder.markdown(f"<p style='color:#5551FF; font-weight:600;'>{step}</p>", unsafe_allow_html=True)
+                        time.sleep(0.6)
+                    progress_placeholder.empty()
+                
+                # Génération de la réponse et sauvegarde dans l'état d'affichage de l'Accueil
+                answer = call_eagle_ia_local(pending)
+                st.session_state['home_query_answer'] = {"q": pending, "a": answer}
+                st.session_state['ai_history'].append({"q": pending, "a": answer}) # Historique global partagé
+                st.toast("Recherche finalisée !")
+                safe_rerun()
+
+            # --- AFFICHAGE DE LA RÉPONSE DIRECTEMENT EN DESSOUS DE LA RECHERCHE ---
+            home_ans = st.session_state.get('home_query_answer')
+            if home_ans:
+                st.markdown(
+                    f"""
+                    <div class="buse-card" style="border: 2px solid #5551FF; background-color: rgba(85, 81, 255, 0.02); margin-top: 15px;">
+                        <h4 style="font-weight:700; color:#1E203B; margin-bottom:10px;">Question : {home_ans['q']}</h4>
+                        <div style="font-size:0.95rem; line-height:1.6; color:#1E203B;">{home_ans['a'].replace('\\n', '<br>')}</div>
+                    </div>
+                    """, unsafe_allow_html=True
+                )
+                generate_browser_speech_widget(home_ans['a'])
+                if st.button("Masquer la réponse", key="btn_hide_home_answer"):
+                    st.session_state['home_query_answer'] = None
                     safe_rerun()
                 
             st.markdown("<p style='font-weight: 600; font-size: 0.95rem; margin-top: 15px;'>Suggestions rapides :</p>", unsafe_allow_html=True)
@@ -756,7 +801,6 @@ def main_app():
                 with cols_sug[idx]:
                     if st.button(sug, key=f"sug_btn_{idx}_v8"):
                         st.session_state['pending_query'] = sug
-                        st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
                         safe_rerun()
 
             # --- CARROUSEL D'INFORMATIONS INTERACTIF ---
@@ -877,30 +921,6 @@ def main_app():
 
         elif current_nav == "Eagle Agent (IA & RPS)":
             st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
-            
-            # --- SYSTÈME DE CHARGEMENT DYNAMIQUE GROK AI ---
-            pending = st.session_state.get('pending_query')
-            if pending:
-                st.session_state['pending_query'] = None # Vide la file d'attente
-                with st.spinner("⚡ Grok (xAI) recherche en direct dans la base légale..."):
-                    progress_placeholder = st.empty()
-                    steps = [
-                        "🔍 Initialisation du moteur Grok AI...",
-                        "⚖️ Analyse de conformité du Code du Travail...",
-                        "📊 Analyse des fiches de paie & avenants...",
-                        "⚡ Synthèse sémantique en cours..."
-                    ]
-                    for step in steps:
-                        progress_placeholder.markdown(f"<p style='color:#5551FF; font-weight:600;'>{step}</p>", unsafe_allow_html=True)
-                        time.sleep(0.7)
-                    progress_placeholder.empty()
-                
-                # Génération et sauvegarde de la réponse
-                answer = call_eagle_ia_local(pending)
-                st.session_state['ai_history'].append({"q": pending, "a": answer})
-                st.toast("Analyse Grok complétée !")
-                safe_rerun()
-
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             with st.form("agent_search_form", clear_on_submit=True):
                 user_input = st.text_input("Posez votre question juridique ou signalez une difficulté (harcèlement, pressions, RPS) :", placeholder="Votre message...")
@@ -1072,7 +1092,9 @@ if not st.session_state.get('auth', False):
             if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
                 if pin == "1234":
                     st.session_state['auth'] = True
-                    # Vérification de l'ancre URL au déverrouillage
+                    # Après déverrouillage, forçage strict du menu d'Accueil comme page principale
+                    st.session_state['sidebar_nav_v8'] = "Accueil"
+                    # Vérification optionnelle de l'ancre d'URL de focus direct (ex: Maître Lefebvre)
                     check_url_anchor_focus()
                     safe_rerun()
                 else:
