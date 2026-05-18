@@ -7,6 +7,7 @@ import json
 import base64
 import math
 import urllib.parse
+import os
 from datetime import datetime
 
 # # Chosen Palette: Apple Violet Premium (Arrière-plan: #F4F5FC, Cartes: #FFFFFF, Accent: #5551FF, Survol: #413CFF, Texte: #1E203B)
@@ -19,14 +20,11 @@ from datetime import datetime
 
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
-    page_title="La Buse - Votre assistant au service du monde du travail",
+    page_title="La Buse - Votre assistant intelligent du monde du travail",
     page_icon="🦉",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# --- CONFIGURATION API ---
-API_KEY = ""  # Gérée automatiquement au runtime par l'environnement
 
 # --- CONSTRUCTEUR DE REDIRECTION ET RERUN ROBUSTE ---
 def safe_rerun():
@@ -34,6 +32,28 @@ def safe_rerun():
         st.rerun()
     except AttributeError:
         st.experimental_rerun()
+
+# --- CHARGEMENT DYNAMIQUE DES SENTINELLES (Depuis GitHub) ---
+@st.cache_data
+def load_experts_data():
+    fallback_data = [
+        {"Type": "Avocat Spécialisé", "Nom": "Maître Lefebvre - Cabinet Droit du Travail Niort", "Contact": "05 49 24 88 99", "Email": "m.lefebvre@avocats-niort-travail.fr", "Adresse": "24 Rue de la Gare, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3210, "lon": -0.4580, "Desc": "Expert reconnu en défense des salariés, contentieux prud'homal, requalification de contrats et harcèlement moral."},
+        {"Type": "Avocat Spécialisé", "Nom": "Cabinet d'Avocats Droit du Travail Niortais", "Contact": "05 49 24 10 20", "Email": "secretariat@travail-niort-avocats.fr", "Adresse": "12 Rue de la Regratterie, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3235, "lon": -0.4635, "Desc": "Spécialisé en licenciements, contrats de travail et Risques Psychosociaux (RPS)."},
+        {"Type": "Avocat Spécialisé", "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", "Contact": "05 49 77 15 30", "Email": "c.valois@deux-sevres-avocats.fr", "Adresse": "45 Avenue de Limoges, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3190, "lon": -0.4480, "Desc": "Conseil et défense des salariés devant le Conseil de Prud'hommes."},
+        {"Type": "Union Syndicale", "Nom": "UD CFDT Deux-Sèvres", "Contact": "05 49 24 51 32", "Email": "ud-79@cfdt.fr", "Adresse": "Maison des Syndicats, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3280, "lon": -0.4610, "Desc": "Accompagnement syndical, défense des droits des salariés."},
+        {"Type": "Union Syndicale", "Nom": "Union Départementale CGT 79", "Contact": "05 49 24 35 12", "Email": "ud79@cgt.fr", "Adresse": "Place de la Comédie, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3262, "lon": -0.4595, "Desc": "Permanences juridiques et défense face au harcèlement et à la pression au travail."},
+        {"Type": "Défenseur des Droits", "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", "Contact": "05 49 04 00 00", "Email": "pad-niort@justice.fr", "Adresse": "10 Rue du Tribunal, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3242, "lon": -0.4645, "Desc": "Médiateur de proximité pour la défense de vos libertés individuelles au travail."}
+    ]
+    try:
+        if os.path.exists("experts_data.json"):
+            with open("experts_data.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("sentinelles", fallback_data)
+    except Exception:
+        pass
+    return fallback_data
+
+EXPERT_DIRECTORY = load_experts_data()
 
 # --- INITIALISATION SÉCURISÉE DE L'ÉTAT DE SESSION ---
 if 'auth' not in st.session_state:
@@ -45,7 +65,7 @@ if 'ai_history' not in st.session_state:
 if 'sidebar_nav_v8' not in st.session_state:
     st.session_state['sidebar_nav_v8'] = "Accueil"
 
-# Accessibilité désactivée par défaut (OFF) comme requis
+# Mode accessibilité désactivé (OFF) par défaut
 if 'audio_on_hover' not in st.session_state:
     st.session_state['audio_on_hover'] = False
 if 'non_voyant' not in st.session_state:
@@ -58,7 +78,7 @@ if 'transcription_audio' not in st.session_state:
 if 'analysis_results' not in st.session_state:
     st.session_state['analysis_results'] = None
 if 'user_location' not in st.session_state:
-    st.session_state['user_location'] = {"lat": 46.3235, "lon": -0.4635}  # Centré sur Niort
+    st.session_state['user_location'] = {"lat": 46.3235, "lon": -0.4635}  # Niort par défaut
 if 'carousel_index' not in st.session_state:
     st.session_state['carousel_index'] = 0
 if 'focus_expert' not in st.session_state:
@@ -84,64 +104,6 @@ CAROUSEL_ITEMS = [
         "titre": "⚖️ Droits & Prévoyance du Salarié",
         "description": "Bénéficiez de grilles de salaires garanties, de majorations pour heures de nuit et de garanties de prévoyance spécifiques selon vos accords.",
         "badge": "Vos Droits"
-    }
-]
-
-# --- BASE DE DONNÉES ENRICHIE DES EXPERTS DE PROXIMITÉ (AVOCATS & SYNDICATS) ---
-EXPERT_DIRECTORY = [
-    {
-        "Type": "Avocat Spécialisé", 
-        "Nom": "Maître Lefebvre - Cabinet Droit du Travail Niort", 
-        "Contact": "05 49 24 88 99", 
-        "Email": "m.lefebvre@avocats-niort-travail.fr",
-        "Adresse": "24 Rue de la Gare, 79000 Niort", 
-        "lat": 46.3210, "lon": -0.4580, 
-        "Desc": "Expert reconnu en défense des salariés, contentieux prud'homal, requalification de contrats et harcèlement moral."
-    },
-    {
-        "Type": "Avocat Spécialisé", 
-        "Nom": "Cabinet d'Avocats Droit du Travail Niortais", 
-        "Contact": "05 49 24 10 20", 
-        "Email": "secretariat@travail-niort-avocats.fr",
-        "Adresse": "12 Rue de la Regratterie, 79000 Niort", 
-        "lat": 46.3235, "lon": -0.4635, 
-        "Desc": "Spécialisé en licenciements, contrats de travail et Risques Psychosociaux (RPS)."
-    },
-    {
-        "Type": "Avocat Spécialisé", 
-        "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", 
-        "Contact": "05 49 77 15 30", 
-        "Email": "c.valois@deux-sevres-avocats.fr",
-        "Adresse": "45 Avenue de Limoges, 79000 Niort", 
-        "lat": 46.3190, "lon": -0.4480, 
-        "Desc": "Conseil et défense des salariés devant le Conseil de Prud'hommes."
-    },
-    {
-        "Type": "Union Syndicale", 
-        "Nom": "UD CFDT Deux-Sèvres", 
-        "Contact": "05 49 24 51 32", 
-        "Email": "ud-79@cfdt.fr",
-        "Adresse": "Maison des Syndicats, 79000 Niort", 
-        "lat": 46.3280, "lon": -0.4610, 
-        "Desc": "Accompagnement syndical, défense des droits des salariés."
-    },
-    {
-        "Type": "Union Syndicale", 
-        "Nom": "Union Départementale CGT 79", 
-        "Contact": "05 49 24 35 12", 
-        "Email": "ud79@cgt.fr",
-        "Adresse": "Place de la Comédie, 79000 Niort", 
-        "lat": 46.3262, "lon": -0.4595, 
-        "Desc": "Permanences juridiques et défense face au harcèlement et à la pression au travail."
-    },
-    {
-        "Type": "Défenseur des Droits", 
-        "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", 
-        "Contact": "05 49 04 00 00", 
-        "Email": "pad-niort@justice.fr",
-        "Adresse": "10 Rue du Tribunal, 79000 Niort", 
-        "lat": 46.3242, "lon": -0.4645, 
-        "Desc": "Médiateur de proximité pour la défense de vos libertés individuelles au travail."
     }
 ]
 
@@ -214,7 +176,7 @@ def apply_ui_design_and_hover_tts():
         text_secondary = "#FFFF00"
         border_color = "#FFFF00"
         sidebar_text_color = "#FFFFFF"
-    else:  # Light Mode de la Maquette Premium (Photo 2)
+    else:
         bg_color = "#F4F5FC"
         card_bg = "#FFFFFF"
         text_primary = "#1E203B"
@@ -222,7 +184,7 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Intégration exacte au caractère près du script JS d'accessibilité transmis par l'utilisateur
+    # Intégration exacte avec protection CORS pour Streamlit Cloud
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', False):
         audio_hover_js = r'''
@@ -251,7 +213,6 @@ def apply_ui_design_and_hover_tts():
                     u.volume = 0;
                     synth.speak(u);
                     isUnlocked = true;
-                    console.log("Moteur audio d accessibilite degenere...");
                 } catch(e) {
                     console.error("Erreur de deverrouillage de la synthese vocale:", e);
                 }
@@ -260,7 +221,8 @@ def apply_ui_design_and_hover_tts():
             document.addEventListener("click", unlockSpeech, { once: true });
             document.addEventListener("touchstart", unlockSpeech, { once: true });
             try {
-                if (window.parent && window.parent.document) {
+                // Securisation CORS pour eviter de faire planter le site sur share.streamlit.io
+                if (window.parent && window.parent.document && window.location.host === window.parent.location.host) {
                     window.parent.document.addEventListener("click", unlockSpeech, { once: true });
                     window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
                 }
@@ -324,11 +286,11 @@ def apply_ui_design_and_hover_tts():
             } catch(e) { console.error("Erreur doc local:", e); }
 
             try {
-                if (window.parent && window.parent.document) {
+                if (window.parent && window.parent.document && window.location.host === window.parent.location.host) {
                     setupListeners(window.parent.document);
                 }
             } catch(e) {
-                console.log("Acces parent restreint. Ecouteurs locaux actifs.");
+                console.log("Acces parent restreint (CORS). Ecouteurs locaux actifs.");
             }
         })();
         </script>
@@ -404,7 +366,7 @@ def apply_ui_design_and_hover_tts():
         margin-bottom: 30px;
     }}
     
-    /* Boutons premium arrondis */
+    /* Boutons premium arrondis de la Photo 2 */
     .stButton>button {{
         background-color: {accent_color} !important;
         color: white !important;
@@ -477,10 +439,10 @@ def render_footer_credits():
     st.markdown(
         f"""
         <div class="buse-footer" data-tts="Mentions legales. Plateforme independante de surveillance salariale et d audit. Copyright {current_year} La Buse. Tous droits reserves.">
-            <p style="margin-bottom: 6px; font-weight: 600;">🦉 La Buse — Plateforme indépendante de surveillance salariale & d'audit</p>
+            <p style="margin-bottom: 6px; font-weight: 600;">La Buse — Plateforme indépendante de surveillance salariale & d'audit</p>
             <p style="margin-bottom: 4px; font-size: 0.75rem; line-height: 1.4;">
-                <strong>Mentions Légales :</strong> Cet outil est une initiative privée indépendante de tout organisme étatique ou syndical. 
-                Les analyses d'audit, de conformité et de primes sont délivrées à titre purement indicatif et s'appuient sur l'état du droit en vigueur et des bases de connaissances conventionnelles. Elles ne se substituent pas à un conseil juridique personnalisé délivré par un avocat inscrit au barreau.
+                <strong>Mentions Légales :</strong> Initiative privée indépendante de tout organisme étatique ou syndical. 
+                Les analyses d'audit, de conformité et de primes sont délivrées à titre purement indicatif et s'appuient sur l'état du droit en vigueur et des bases de connaissances conventionnelles. Elles ne se substituent pas à un conseil juridique personnalisé.
             </p>
             <p style="margin-top: 8px; font-size: 0.75rem; font-weight: 500;">
                 Copyright © {current_year} — La Buse. Tous droits réservés.
@@ -495,8 +457,8 @@ def call_eagle_ia_local(prompt, context=""):
     p_lower = prompt.lower()
     intro_grok = "⚡ **Grok (xAI) — Analyse Légale & Sémantique en temps réel**\n\n"
     
-    if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower or "lisencement" in p_lower or "licenciement" in p_lower or "indemnit" in p_lower:
-        if "indemnit" in p_lower or "lisencement" in p_lower:
+    if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower or "licenciement" in p_lower or "indemnit" in p_lower:
+        if "indemnit" in p_lower or "licenciement" in p_lower:
             return (
                 f"{intro_grok}"
                 "D'après les dispositions du Code du travail régissant la rupture du contrat de travail de manière permanente :\n\n"
@@ -505,12 +467,10 @@ def call_eagle_ia_local(prompt, context=""):
                 "- **Un quart (1/4) de mois de salaire** par année d'ancienneté pour les 10 premières années.\n"
                 "- **Un tiers (1/3) de mois de salaire** par année d'ancienneté pour les années à partir de la 11ème année.\n\n"
                 "### 2. Le salaire de référence à retenir\n"
-                "Le calcul s'effectue sur la formule la plus avantageuse pour vous :\n"
-                "1. La moyenne des **12 derniers mois** précédant la notification du licenciement.\n"
-                "2. La moyenne des **3 derniers mois** (les primes exceptionnelles ou annuelles versées durant cette période sont prises en compte au prorata).\n\n"
-                "### 3. Les démarches prioritaires recommandées par Grok\n"
-                "- **Vérifier l'existence de clauses conventionnelles plus favorables** auprès d'un expert de votre région.\n"
-                "- Rassembler tous vos bulletins de paie et votre contrat de travail."
+                "Le calcul s'effectue sur la formule la plus avantageuse pour vous (moyenne des 12 derniers mois ou des 3 derniers mois).\n\n"
+                "### 3. Les démarches de conformité recommandées par Grok\n"
+                "- **Vérifier l'existence de clauses conventionnelles ou d'accords d'entreprise plus favorables** auprès d'un expert de votre région.\n"
+                "- Rassembler tous vos bulletins de paie et votre contrat initial de travail avant tout entretien."
             )
         else:
             return (
@@ -519,9 +479,9 @@ def call_eagle_ia_local(prompt, context=""):
                 "### Anomalies et Non-respect détectés :\n"
                 "- Atteinte potentielle à l'Article L4121-1 du Code du travail concernant l'obligation légale de protection de la santé mentale et physique.\n"
                 "- Manquement suspecté aux règles de prévention des risques psychosociaux (RPS).\n\n"
-                "### Protocole recommandé :\n"
-                "1. **Consignez de manière écrite tous les faits :** Prenez des notes détaillées (faits précis, dates, heures, propos tenus, témoins).\n"
-                "2. **Alertez l'employeur ou son représentant :** Rappelez son obligation de sécurité.\n"
+                "### Protocole d'action recommandé :\n"
+                "1. **Consignez de manière écrite tous les faits :** Prenez des notes détaillées (faits précis, dates, heures, propos tenus, collègues présents ou témoins éventuels).\n"
+                "2. **Alertez l'employeur ou son représentant :** Rappelez son obligation de sécurité par écrit.\n"
                 "3. **Contactez la Médecine du Travail :** Sollicitez une visite médicale de votre propre initiative."
             )
     elif "heure" in p_lower or "planning" in p_lower or "délai" in p_lower:
@@ -529,7 +489,7 @@ def call_eagle_ia_local(prompt, context=""):
             f"{intro_grok}"
             "Selon la réglementation en vigueur du droit du travail :\n\n"
             "### Anomalies et Non-respect détectés :\n"
-            "- Non-respect du délai de prévenance légal de 7 jours pour la modification de vos horaires.\n"
+            "- Non-respect suspecté du délai de prévenance légal de 7 jours pour la modification de vos horaires.\n"
             "- Défaut de paiement ou de majoration réglementaire de vos heures supplémentaires effectuées au-delà des 35 heures.\n\n"
             "### Droits à faire valoir :\n"
             "- **Délai de prévenance :** Vos horaires collectifs ou individuels doivent être connus au moins 7 jours à l'avance.\n"
@@ -551,7 +511,7 @@ def call_eagle_ia_local(prompt, context=""):
             "**Préconisations de dossier :**\n"
             "Pour que Maître Lefebvre puisse évaluer l'opportunité d'un recours prud'homal (heures supplémentaires non payées, harcèlement moral, licenciement sans cause réelle et sérieuse), préparez :\n"
             "- Vos 12 derniers bulletins de salaire.\n"
-            "- Votre contrat de travail et ses avenants (avenant prime Infinity V4 inclus).\n"
+            "- Votre contrat de travail et ses avenants (avenant de prime Infinity V4 inclus).\n"
             "- Tout écrit (e-mails, SMS, plannings réels) étayant vos demandes."
         )
     else:
@@ -614,8 +574,8 @@ def generate_prefilled_mail_link(expert_name, expert_email, include_proofs=False
     subject = f"Prise de contact d'urgence - Analyse de conformité La Buse"
     
     body = f"Bonjour {expert_name},\n\n" \
-           f"Je vous sollicite en tant que Sentinelle afin d'obtenir vos conseils et d'évaluer l'opportunité d'une démarche d'accompagnement ou de recours prud'homal.\n\n" \
-           f"Mes échanges avec l'assistant juridique Grok ont mis en lumière les éléments factuels suivants :\n"
+           f"Je vous sollicite en tant que Sentinelle afin d'obtenir vos conseils et d'évaluer l'opportunité d'une démarche d'accompagnement ou d'un éventuel recours prud'homal.\n\n" \
+           f"Mes échanges avec l'assistant de conformité sémantique Grok ont mis en lumière les éléments factuels suivants :\n"
            
     if last_query:
         body += f"- Situation exposée : \"{last_query}\"\n"
@@ -629,7 +589,7 @@ def generate_prefilled_mail_link(expert_name, expert_email, include_proofs=False
         body += f"- Situation exposée : Demande d'examen de conformité globale de mes bulletins de salaire et de mes primes contractuelles (Infinity V4).\n"
         
     body += f"\nStatut des preuves :\n{statut_preuves}\n\n" \
-           f"Je me tiens à votre entière disposition pour convenir d'un échange téléphonique ou physique.\n\n" \
+           f"Je me tiens à votre entière disposition pour convenir d'un échange rapide.\n\n" \
            f"Cordialement,\n" \
            f"Utilisateur Certifié - Plateforme d'accessibilité La Buse"
 
@@ -638,7 +598,7 @@ def generate_prefilled_mail_link(expert_name, expert_email, include_proofs=False
     
     return f"mailto:{expert_email}?subject={encoded_subject}&body={encoded_body}"
 
-# --- CALCULATEURS INFINITY (PDF DATA) ---
+# --- CALCULATEURS DE PRIMES INFINITY V4 ---
 def calculate_infinity_v4(ca_perso, heures_mois=48):
     seuil_base = 1300.0
     declencheur = 411.69
@@ -652,10 +612,32 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
     if ratio_reel >= 7: return ecart, "20%", "#D4AF37", 20
     return ecart, "DÉPLAFONNÉ (0%+)", "#D4AF37", 5
 
+# --- POP-UP DE GÉOLOCALISATION SÉCURISÉE (HTML5) ---
+def inject_geoloc_popup_widget():
+    geoloc_js = """
+    <script>
+    (function() {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var lat = position.coords.latitude;
+                var lon = position.coords.longitude;
+                console.log("Géolocalisation réussie : " + lat + ", " + lon);
+                document.cookie = "buse_lat=" + lat + "; path=/";
+                document.cookie = "buse_lon=" + lon + "; path=/";
+            }, function(error) {
+                console.warn("Autorisation refusée ou indisponible.");
+            });
+        }
+    })();
+    </script>
+    """
+    st.components.v1.html(geoloc_js, height=0)
+
 # --- APPLICATION PRINCIPALE ---
 def main_app():
     apply_ui_design_and_hover_tts()
     
+    # Navigation asymétrique sans les onglets inutiles
     menu_items = [
         "Accueil",
         "Eagle Agent (IA & RPS)",
@@ -665,7 +647,7 @@ def main_app():
     ]
 
     with st.sidebar:
-        # En-tête de la barre latérale modernisé
+        # En-tête de la barre latérale
         st.markdown(
             f"""
             <div style='display: flex; align-items: center; justify-content: center; margin-bottom: 25px;'>
@@ -680,7 +662,6 @@ def main_app():
             unsafe_allow_html=True
         )
         
-        # Le routage se base de façon stable et synchrone sur l'état de session
         nav = st.radio("MENU", menu_items, index=menu_items.index(st.session_state['sidebar_nav_v8']), key="sidebar_radio_selection_v8")
         st.session_state['sidebar_nav_v8'] = nav
         
@@ -701,7 +682,7 @@ def main_app():
         st.session_state['transcription_audio'] = transcription_audio
         
         # Possibilité de rebasculer en mode normal sans accessibilité
-        if st.button("Désactiver l'accessibilité", key="btn_reset_accessibility"):
+        if st.button("Couper l'accessibilité", key="btn_reset_accessibility"):
             st.session_state['non_voyant'] = False
             st.session_state['audio_on_hover'] = False
             st.session_state['high_contrast'] = False
@@ -744,16 +725,14 @@ def main_app():
                 submit_q = st.form_submit_button("Lancer la recherche")
                 
                 if submit_q and search_q:
-                    # Enregistrement dans la file d'attente sémantique pour traitement interne immédiat sur l'Accueil
+                    # Enregistrement dans la file d'attente sémantique
                     st.session_state['pending_query'] = search_q
                     safe_rerun()
 
-            # --- GESTION ET ANIMATION DE RECHERCHE DIRECTEMENT SUR L'ACCUEIL ---
+            # --- DÉCLENCHEUR SÉMANTIQUE DE RECHERCHE ---
             pending = st.session_state.get('pending_query')
             if pending:
-                st.session_state['pending_query'] = None # Vide la file d'attente
-                
-                # Écran / Animation de chargement progressive de Grok AI le temps de générer la réponse
+                st.session_state['pending_query'] = None
                 with st.spinner("⚡ Recherche Grok AI en direct..."):
                     progress_placeholder = st.empty()
                     steps = [
@@ -767,14 +746,13 @@ def main_app():
                         time.sleep(0.6)
                     progress_placeholder.empty()
                 
-                # Génération de la réponse et sauvegarde dans l'état d'affichage de l'Accueil
                 answer = call_eagle_ia_local(pending)
                 st.session_state['home_query_answer'] = {"q": pending, "a": answer}
-                st.session_state['ai_history'].append({"q": pending, "a": answer}) # Historique global partagé
-                st.toast("Recherche finalisée !")
+                st.session_state['ai_history'].append({"q": pending, "a": answer})
+                st.toast("Analyse Grok complétée !")
                 safe_rerun()
 
-            # --- AFFICHAGE DE LA RÉPONSE DIRECTEMENT EN DESSOUS DE LA RECHERCHE ---
+            # --- RENDU DE LA RÉPONSE DIRECTEMENT EN DESSOUS ---
             home_ans = st.session_state.get('home_query_answer')
             if home_ans:
                 st.markdown(
@@ -950,7 +928,6 @@ def main_app():
         elif current_nav == "Réseau Sentinelles":
             st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
             
-            # Actionneur d'accessibilité immédiat à l'intérieur de la vue
             col_acc_toggle, col_acc_reset = st.columns([2, 1])
             with col_acc_toggle:
                 st.session_state['audio_on_hover'] = st.toggle("🔊 Activer l'accessibilité vocale au survol", value=st.session_state['audio_on_hover'], key="tg_sentinel_local_hover")
@@ -961,6 +938,12 @@ def main_app():
                     st.session_state['high_contrast'] = False
                     st.success("Mode normal activé !")
                     safe_rerun()
+            
+            # Déclencheur du pop-up d'autorisation de localisation géolocalisée (HTML5)
+            st.markdown("<h4 style='font-size: 1.1rem; color: #5551FF; margin-top:15px;'>📍 Optimisez les sentinelles par géolocalisation</h4>", unsafe_allow_html=True)
+            if st.button("Autoriser la géolocalisation (Demander l'autorisation d'accès)", key="btn_authorize_geoloc"):
+                inject_geoloc_popup_widget()
+                st.toast("Demande d'autorisation de localisation envoyée au navigateur.")
             
             # Focus automatique sur Maitre Lefebvre s'il a été appelé par l'ancre URL
             if st.session_state.get('focus_expert') == "Maître Lefebvre":
@@ -974,17 +957,17 @@ def main_app():
                 is_lefebvre = "Lefebvre" in d['Nom']
                 border_style = "border: 2px solid #5551FF; background-color: rgba(85, 81, 255, 0.03);" if is_lefebvre else ""
                 
-                # Checkbox dynamique propre à chaque fiche d'expert pour joindre ou non les preuves d'audit
-                include_proofs = st.checkbox(f"Joindre les preuves d'audit d'anomalies de salaire pour {d['Nom']}", value=(st.session_state.get('analysis_results') is not None), key=f"chk_proof_{d['Nom']}")
+                # Checkbox dynamique pour joindre ou non les preuves d'audit au courriel de contact
+                include_proofs = st.checkbox(f"Joindre les preuves d'audit pour {d['Nom']}", value=(st.session_state.get('analysis_results') is not None), key=f"chk_proof_{d['Nom']}")
                 
-                # Récupération du lien d'envoi de mail prérempli contextuel selon l'échange avec Eagle
+                # Construction du mailto pré-rempli
                 mailto_link = generate_prefilled_mail_link(d['Nom'], d['Email'], include_proofs=include_proofs)
                 
                 st.markdown(
                     f"""
                     <div class="buse-card" style="margin-bottom:15px; padding:15px; {border_style}" data-tts="{d['Nom']}">
                         <strong style="color: #5551FF; font-size: 1.1rem;">📍 {d['Nom']}</strong><br>
-                        <span style="font-size:0.85rem; color:#6B7280;">({d['Type']}) — {d['Adresse']}</span><br>
+                        <span style="font-size:0.85rem; color:#6B7280;">({d['Type']}) — {d['Adresse']} — Dép : {d['Departement']}</span><br>
                         <p style="font-size:0.9rem; margin-top:5px; line-height:1.4;">{d['Desc']}</p>
                         <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <strong style="font-size:0.9rem; color:#1E203B;">📞 {d['Contact']}</strong>
@@ -997,7 +980,7 @@ def main_app():
                                 font-size: 0.8rem;
                                 font-weight: 600;
                                 transition: background-color 0.2s;
-                            ">✉️ Ouvrir ma boîte mail (Courrier pré-rempli)</a>
+                            ">✉️ Envoyer mon dossier par Mail pré-rempli</a>
                         </div>
                     </div>
                     """, unsafe_allow_html=True
@@ -1034,7 +1017,7 @@ def main_app():
                 st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        # Pied de page systematique avec Mentions Legales et Copyright en bas de chaque rubrique
+        # Pied de page
         render_footer_credits()
 
     # --- PANNEAU DE DROITE (ACCÈS RAPIDE, AIDE) ---
@@ -1094,7 +1077,7 @@ if not st.session_state.get('auth', False):
                     st.session_state['auth'] = True
                     # Après déverrouillage, forçage strict du menu d'Accueil comme page principale
                     st.session_state['sidebar_nav_v8'] = "Accueil"
-                    # Vérification optionnelle de l'ancre d'URL de focus direct (ex: Maître Lefebvre)
+                    # Vérification de l'ancre d'URL de focus direct (ex: Maître Lefebvre)
                     check_url_anchor_focus()
                     safe_rerun()
                 else:
