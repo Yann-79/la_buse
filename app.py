@@ -8,20 +8,6 @@ import base64
 import math
 from datetime import datetime
 
-# # Chosen Palette: Apple Violet Premium (Arrière-plan: #F4F5FC, Cartes: #FFFFFF, Accent: #5551FF, Survol: #413CFF, Texte: #1E203B)
-# # Application Structure Plan: 
-# # La structure de l'application est modélisée sur l'architecture asymétrique de la Photo 2.
-# # Elle comprend une barre latérale gauche pour naviguer, un panneau central large pour l'activité principale
-# # (avec carrousel interactif, formulaires et cartes d'actions) et un panneau droit pour les outils rapides
-# # et la configuration de l'accessibilité vocale. Ce choix d'architecture garantit une expérience utilisateur
-# # fluide et structurée directement en Python Streamlit.
-# # Visualization & Content Choices:
-# # - Proportions Salaire -> Graphique en anneau (Doughnut Chart.js via HTML/st.components) pour séparer les cotisations.
-# # - Écart de seuil Infinity -> Graphique à barres verticales pour évaluer la distance par rapport aux 1300€ du PDF.
-# # - Agent Eagle -> Chat interactif asynchrone avec base locale et synthèse vocale Web Speech intégrée.
-# # - Réseau Sentinelles -> Cartographie native Streamlit couplée aux calculs de distance Haversine.
-# # CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
-
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
     page_title="La Buse - Votre assistant au service du monde du travail",
@@ -223,20 +209,20 @@ def apply_ui_design_and_hover_tts():
         font-weight: 500 !important;
     }}
 
-    /* Cartes de contenu (Photo 2) */
-    .buse-card {{
-        background-color: {card_bg};
-        border-radius: 16px;
-        padding: 24px;
-        margin-bottom: 20px;
-        border: 1px solid {border_color};
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-        transition: transform 0.2s, box-shadow 0.2s;
+    /* Cartes de contenu (Photo 2) et stylisation des containers de bordure Streamlit natifs */
+    .buse-card, div[data-testid="stVerticalBlockBorder"] {{
+        background-color: {card_bg} !important;
+        border-radius: 16px !important;
+        padding: 24px !important;
+        margin-bottom: 20px !important;
+        border: 1px solid {border_color} !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02) !important;
+        transition: transform 0.2s, box-shadow 0.2s !important;
     }}
     
-    .buse-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(85, 81, 255, 0.08);
+    .buse-card:hover, div[data-testid="stVerticalBlockBorder"]:hover {{
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 30px rgba(85, 81, 255, 0.08) !important;
     }}
     
     .buse-title-primary {{
@@ -319,7 +305,7 @@ def apply_ui_design_and_hover_tts():
     </style>
     """ + (audio_hover_js if st.session_state.audio_on_hover else ""), unsafe_allow_html=True)
 
-# --- CONSOLE EXPERTE DE RÉPONSES LOCALES IDCC 1517 & RPS (SANS BLOCAGE) ---
+# --- CONSOLE EXPERTE DE RÉPONSES LOCALES IDCC 1517 & RPS ---
 def call_eagle_ia_local(prompt, context=""):
     p_lower = prompt.lower()
     
@@ -650,10 +636,10 @@ def run_loading_sequence():
         st.markdown("<h2 style='text-align:center;' class='glow-text'>la buse - initialisation...</h2>", unsafe_allow_html=True)
         
         # Résolution définitive du bug st.progress par l'utilisation d'un entier strict de 0 à 100 sans paramètre key
-        bar = st.progress(0)
+        bar = st.progress(0.0)
         for i in range(101):
             time.sleep(0.005)
-            bar.progress(i)
+            bar.progress(float(i) / 100.0)
         st.session_state.loading_complete = True
         st.rerun()
 
@@ -665,16 +651,15 @@ if not st.session_state.auth:
         st.markdown("<br><br>", unsafe_allow_html=True)
         # Logo chouette inséré au-dessus du formulaire (Photo 2)
         st.markdown(CHOUETTE_LOGO_HTML, unsafe_allow_html=True)
-        st.markdown("<div class='buse-card' style='text-align:center;'>", unsafe_allow_html=True)
-        st.markdown("<h2 class='glow-text'>accès sécurisé</h2>", unsafe_allow_html=True)
-        pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v8")
-        if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
-            if pin == "1234":
-                st.session_state.auth = True
-                st.rerun()
-            else:
-                st.error("PIN incorrect.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("<h2 class='glow-text' style='text-align:center; font-family:Inter; color:#1E203B;'>Accès sécurisé</h2>", unsafe_allow_html=True)
+            pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v8")
+            if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
+                if pin == "1234":
+                    st.session_state.auth = True
+                    st.rerun()
+                else:
+                    st.error("PIN incorrect.")
 else:
     if not st.session_state.loading_complete:
         run_loading_sequence()
