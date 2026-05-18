@@ -152,7 +152,7 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Script JavaScript de synthèse vocale au survol (Web Speech API) avec auto-déverrouillage
+    # Intégration exacte du script d'accessibilité vocale au survol de l'utilisateur
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
@@ -206,9 +206,9 @@ def apply_ui_design_and_hover_tts():
                     utterance.lang = 'fr-FR';
                     utterance.rate = 1.0;
                     utterance.pitch = 1.0;
-                    
+
                     if (!isUnlocked) unlockSpeech();
-                    
+
                     synth.speak(utterance);
                     lastText = text;
                 } catch (err) {
@@ -218,7 +218,7 @@ def apply_ui_design_and_hover_tts():
 
             function setupListeners(doc) {
                 if (!doc) return;
-                
+
                 // Évite la duplication des écouteurs sur le même document
                 if (doc._buseTtsActive) return; 
                 doc._buseTtsActive = true;
@@ -226,11 +226,11 @@ def apply_ui_design_and_hover_tts():
                 doc.addEventListener('mouseover', (e) => {
                     const el = e.target;
                     if (!el) return;
-                    
+
                     let targetEl = el;
                     let textToRead = "";
                     let depth = 0;
-                    
+
                     // Remonte l'arborescence pour trouver un conteneur textuel valide
                     while (targetEl && depth < 3) {
                         textToRead = targetEl.getAttribute('data-tts') || targetEl.innerText || targetEl.textContent;
