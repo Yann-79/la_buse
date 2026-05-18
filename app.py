@@ -152,9 +152,7 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Injection robuste et sécurisée via gestion d'erreur d'image (Bypasse le bac à sable de Streamlit / CORS)
-    # L'utilisation de guillemets simples à l'extérieur et doubles à l'intérieur évite toute cassure de l'attribut HTML.
-    # Les commentaires et apostrophes libres ont été retirés pour exclure tout bug syntaxique.
+    # Intégration textuelle et rigoureuse au caractère près de votre script d'accessibilité vocale au survol.
     audio_hover_js = r"""
     <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror='(function() {
         let synth = null;
@@ -408,7 +406,7 @@ def render_footer_credits():
     current_year = datetime.now().year
     st.markdown(
         f"""
-        <div class="buse-footer" data-tts="Mentions légales. Plateforme indépendante de surveillance salariale et d audit. Copyright {current_year} La Buse. Tous droits réservés.">
+        <div class="buse-footer" data-tts="Mentions legales. Plateforme independante de surveillance salariale et d audit. Copyright {current_year} La Buse. Tous droits reserves.">
             <p style="margin-bottom: 6px; font-weight: 600;">🦉 La Buse — Plateforme indépendante de surveillance salariale & d'audit</p>
             <p style="margin-bottom: 4px; font-size: 0.75rem; line-height: 1.4;">
                 <strong>Mentions Légales :</strong> Cet outil est une initiative privée indépendante de tout organisme étatique ou syndical. 
@@ -441,7 +439,7 @@ def call_eagle_ia_local(prompt, context=""):
             "⚖️ **RÉGLEMENTATION HORAIRES & PLANNINGS**\n\n"
             "Selon la réglementation du droit du travail :\n\n"
             "- **Délai de prévenance :** Les plannings et les modifications d'horaires collectifs ou individuels doivent vous être communiqués dans un délai suffisant (souvent fixé à 7 jours à l'avance) pour vous permettre de vous organiser.\n"
-            "- **Majoration des Heures Supplémentaires :** Les heures effectuées au-delà de la durée légale de travail ouvrent droit à une majoration de salaire légale (25% pour les 8 premières heures, 50% au-delà)."
+            "- **Majoration des Heures Supplémentaires :** Les heures effectuées au-delà de la durée légale de travail ouvrent droit à une majoration de salaire de 25% pour les 8 premières heures, et 50% au-delà."
         )
     elif "nuit" in p_lower:
         return (
@@ -505,7 +503,7 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
 def main_app():
     apply_ui_design_and_hover_tts()
     
-    # Retrait de la rubrique "Code du travail" (Convention Collective)
+    # Retrait complet de la rubrique "Code du travail" (Convention Collective) pour simplifier le menu
     menu_items = [
         "Accueil",
         "Eagle Agent (IA & RPS)",
