@@ -42,8 +42,8 @@ if 'loading_complete' not in st.session_state:
     st.session_state['loading_complete'] = False
 if 'ai_history' not in st.session_state:
     st.session_state['ai_history'] = []
-if 'menu_index' not in st.session_state:
-    st.session_state['menu_index'] = 0
+if 'sidebar_nav_v8' not in st.session_state:
+    st.session_state['sidebar_nav_v8'] = "Accueil"
 if 'audio_on_hover' not in st.session_state:
     st.session_state['audio_on_hover'] = True
 if 'non_voyant' not in st.session_state:
@@ -152,7 +152,7 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Intégration exacte du script d'accessibilité vocale au survol de l'utilisateur
+    # Script JavaScript exact d'accessibilité vocale au survol (Web Speech API) fourni par l'utilisateur
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
@@ -245,7 +245,7 @@ def apply_ui_design_and_hover_tts():
                         clearTimeout(timer);
                         timer = setTimeout(() => {
                             ttsSpeak(textToRead.trim());
-                        }, 150);
+                        }, 120);
                     }
                 });
 
@@ -510,12 +510,15 @@ def main_app():
             unsafe_allow_html=True
         )
         
-        # Navigation synchronisée à l'aide d'un get() sécurisé
-        idx_init = st.session_state.get('menu_index', 0)
-        nav = st.radio("MENU", menu_items, index=idx_init, key="sidebar_nav_v8")
+        # Routage robuste basé sur la valeur et non l'index
+        nav_init = st.session_state.get('sidebar_nav_v8', "Accueil")
+        if nav_init not in menu_items:
+            nav_init = "Accueil"
+            
+        nav = st.radio("MENU", menu_items, index=menu_items.index(nav_init), key="sidebar_radio_selection_v8")
         
-        # On met à jour l'index interne de session
-        st.session_state['menu_index'] = menu_items.index(nav)
+        # Met à jour la variable d'état
+        st.session_state['sidebar_nav_v8'] = nav
         
         st.markdown("---")
         st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
@@ -533,7 +536,7 @@ def main_app():
     col_main, col_right_pane = st.columns([3, 1])
 
     with col_main:
-        if st.session_state.get('menu_index', 0) == 0:  # Accueil
+        if st.session_state.get('sidebar_nav_v8', "Accueil") == "Accueil":
             col_text, col_mascotte = st.columns([2, 1])
             with col_text:
                 st.markdown(
@@ -557,7 +560,7 @@ def main_app():
                 if submit_q and search_q:
                     response = call_eagle_ia_local(search_q)
                     st.session_state['ai_history'].append({"q": search_q, "a": response})
-                    st.session_state['menu_index'] = 1  # Redirection immédiate vers Eagle Agent
+                    st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"  # Redirection immédiate
                     safe_rerun()
                 
             st.markdown("<p style='font-weight: 500; font-size: 0.95rem; margin-top: 15px;'>Suggestions rapides :</p>", unsafe_allow_html=True)
@@ -572,7 +575,7 @@ def main_app():
                     if st.button(sug, key=f"sug_btn_{idx}_v8"):
                         response = call_eagle_ia_local(sug)
                         st.session_state['ai_history'].append({"q": sug, "a": response})
-                        st.session_state['menu_index'] = 1  # Redirection immédiate
+                        st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"  # Redirection immédiate
                         safe_rerun()
 
             # --- CARROUSEL D'INFORMATIONS INTERACTIF ---
@@ -633,7 +636,7 @@ def main_app():
                     """, unsafe_allow_html=True
                 )
 
-        elif st.session_state.get('menu_index', 0) == 1:  # Eagle Agent (IA & RPS)
+        elif st.session_state.get('sidebar_nav_v8') == "Eagle Agent (IA & RPS)":  # Eagle Agent (IA & RPS)
             st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             
@@ -653,7 +656,7 @@ def main_app():
                     st.markdown(chat['a'])
                     generate_browser_speech_widget(chat['a'])
 
-        elif st.session_state.get('menu_index', 0) == 2:  # Analyse & Audit
+        elif st.session_state.get('sidebar_nav_v8') == "Analyse & Audit":  # Analyse & Audit
             st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit Documentaire</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             doc_uploaded = st.file_uploader("Importer une fiche de paie ou un contrat", type=["pdf", "png", "jpg"], key="uploader_audit_v8")
@@ -663,13 +666,13 @@ def main_app():
                     st.success("Audit complété !")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.get('menu_index', 0) == 3:  # Code du travail
+        elif st.session_state.get('sidebar_nav_v8') == "Code du travail":  # Code du travail
             st.markdown("<h2 class='glow-text'>⚖️ Code du travail</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             st.info("La Convention Collective Boulangerie-Pâtisserie (IDCC 1517) régit l'activité.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.get('menu_index', 0) == 4:  # Réseau Sentinelles
+        elif st.session_state.get('sidebar_nav_v8') == "Réseau Sentinelles":  # Réseau Sentinelles
             st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
             df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
             st.map(df_sentinelles)
@@ -678,7 +681,7 @@ def main_app():
                 st.write(f"📍 **{d['Nom']}** ({d['Type']}) — `Téléphone : {d['Contact']}`")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.get('menu_index', 0) == 5:  # Calculateur de primes
+        elif st.session_state.get('sidebar_nav_v8') == "Calculateur de primes":  # Calculateur de primes
             st.markdown("<h2 class='glow-text'>💎 Calculateur de Primes & Salaire</h2>", unsafe_allow_html=True)
             col_inf, col_sal = st.columns(2)
             with col_inf:
@@ -701,7 +704,7 @@ def main_app():
                 st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        elif st.session_state.get('menu_index', 0) == 6:  # Mes documents
+        elif st.session_state.get('sidebar_nav_v8') == "Mes documents":  # Mes documents
             st.markdown("<h2 class='glow-text'>📂 Mes documents</h2>", unsafe_allow_html=True)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             st.code("📄 contrat_de_travail_IDCC1517.pdf\n📄 avenant_infinity_v4.pdf", language="text")
