@@ -152,35 +152,100 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Script JavaScript exact de synthèse vocale au survol (Web Speech API) fourni par l'utilisateur
+    # Script JavaScript de synthèse vocale au survol (Web Speech API) avec auto-déverrouillage
     audio_hover_js = ""
     if st.session_state.get('audio_on_hover', True):
         audio_hover_js = """
         <script>
         (function() {
-            const synth = window.speechSynthesis;
+            let synth = null;
+            try {
+                synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
+            } catch(e) {
+                synth = window.speechSynthesis;
+            }
+
+            if (!synth) {
+                console.warn("SpeechSynthesis non supporté sur ce navigateur.");
+                return;
+            }
+
             let lastText = "";
             let timer = null;
+            let isUnlocked = false;
+
+            // Déverrouille la synthèse vocale pour mobiles/Safari (exige un geste de l'utilisateur)
+            function unlockSpeech() {
+                if (isUnlocked) return;
+                try {
+                    const u = new SpeechSynthesisUtterance("");
+                    u.volume = 0;
+                    synth.speak(u);
+                    isUnlocked = true;
+                    console.log("Moteur audio d'accessibilité déverrouillé.");
+                } catch(e) {
+                    console.error("Erreur de déverrouillage de la synthèse vocale:", e);
+                }
+            }
+
+            // Attache les écouteurs de déverrouillage tactile ou clic
+            document.addEventListener('click', unlockSpeech, { once: true });
+            document.addEventListener('touchstart', unlockSpeech, { once: true });
+            try {
+                if (window.parent && window.parent.document) {
+                    window.parent.document.addEventListener('click', unlockSpeech, { once: true });
+                    window.parent.document.addEventListener('touchstart', unlockSpeech, { once: true });
+                }
+            } catch(e) {}
 
             function ttsSpeak(text) {
                 if (!text || text === lastText) return;
-                synth.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'fr-FR';
-                utterance.rate = 1.0;
-                synth.speak(utterance);
-                lastText = text;
+                try {
+                    synth.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'fr-FR';
+                    utterance.rate = 1.0;
+                    utterance.pitch = 1.0;
+                    
+                    if (!isUnlocked) unlockSpeech();
+                    
+                    synth.speak(utterance);
+                    lastText = text;
+                } catch (err) {
+                    console.error("Erreur de lecture vocale:", err);
+                }
             }
 
             function setupListeners(doc) {
+                if (!doc) return;
+                
+                // Évite la duplication des écouteurs sur le même document
+                if (doc._buseTtsActive) return; 
+                doc._buseTtsActive = true;
+
                 doc.addEventListener('mouseover', (e) => {
                     const el = e.target;
-                    const textToRead = el.getAttribute('data-tts') || el.innerText || el.textContent;
-                    if (el.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge') && textToRead) {
+                    if (!el) return;
+                    
+                    let targetEl = el;
+                    let textToRead = "";
+                    let depth = 0;
+                    
+                    // Remonte l'arborescence pour trouver un conteneur textuel valide
+                    while (targetEl && depth < 3) {
+                        textToRead = targetEl.getAttribute('data-tts') || targetEl.innerText || targetEl.textContent;
+                        if (targetEl.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid="stMarkdownContainer"]')) {
+                            break;
+                        }
+                        targetEl = targetEl.parentElement;
+                        depth++;
+                    }
+
+                    if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
                         clearTimeout(timer);
                         timer = setTimeout(() => {
                             ttsSpeak(textToRead.trim());
-                        }, 120);
+                        }, 150);
                     }
                 });
 
@@ -189,7 +254,7 @@ def apply_ui_design_and_hover_tts():
                 });
             }
 
-            // Attache les écouteurs sur le document local et sur le document parent de Streamlit
+            // Attache les écouteurs sur le document local et sur le document parent de Streamlit (gestion CORS intégrée)
             try {
                 setupListeners(document);
             } catch(e) { console.error("Erreur doc local:", e); }
@@ -199,7 +264,7 @@ def apply_ui_design_and_hover_tts():
                     setupListeners(window.parent.document);
                 }
             } catch(e) {
-                console.log("Accès parent restreint (CORS). Écouteurs locaux uniquement.");
+                console.log("Accès parent restreint (CORS). Écouteurs locaux actifs.");
             }
         })();
         </script>
@@ -216,7 +281,7 @@ def apply_ui_design_and_hover_tts():
         font-family: 'Inter', sans-serif;
     }}
     
-    /* FORCE la visibilité du texte dans la sidebar (Évite le blanc sur fond blanc) */
+    /* FORCE la visibilité du texte dans la sidebar (Évite le blanc sur blanc) */
     section[data-testid="stSidebar"] {{
         background-color: {card_bg} !important;
         border-right: 1px solid {border_color} !important;
@@ -362,7 +427,7 @@ def call_eagle_ia_local(prompt, context=""):
             "🌙 **TRAVAIL DE NUIT (IDCC 1517)**\n\n"
             "Sous la convention de la Boulangerie-Pâtisserie :\n\n"
             "- Les heures effectuées entre **20h00 et 6h00** du matin sont qualifiées de travail de nuit.\n"
-            "- Elles ouvrent droit à une **majoration de salaire minimale de 25%** pour chaque heure travaillée, ainsi qu'à des repos compensateurs sous certaines conditions."
+            "- Elles ouvrent droit à une **majoration de salaire minimale de 25%** pour chaque heure travaillée, ainsi qu'à des repos compensateurs sous certains conditions."
         )
     elif "licenciement" in p_lower or "rupture" in p_lower:
         return (
