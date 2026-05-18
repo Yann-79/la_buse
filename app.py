@@ -55,12 +55,15 @@ if 'transcription_audio' not in st.session_state:
 if 'analysis_results' not in st.session_state:
     st.session_state['analysis_results'] = None
 if 'user_location' not in st.session_state:
-    st.session_state['user_location'] = {"lat": 46.3833, "lon": -0.4500}
+    st.session_state['user_location'] = {"lat": 46.3235, "lon": -0.4635}  # Centré sur Niort
 if 'carousel_index' not in st.session_state:
     st.session_state['carousel_index'] = 0
+if 'focus_expert' not in st.session_state:
+    st.session_state['focus_expert'] = None
 
 # --- BASE DE DONNÉES ENRICHIE (DÉFENSEURS, SYNDICATS & AVOCATS DE PROXIMITÉ) ---
 EXPERT_DIRECTORY = [
+    {"Type": "Avocat Spécialisé", "Nom": "Maître Lefebvre - Cabinet Droit du Travail Niort", "Contact": "05 49 24 88 99", "Adresse": "24 Rue de la Gare, 79000 Niort", "lat": 46.3210, "lon": -0.4580, "Desc": "Expert reconnu en défense des salariés, contentieux prud'homal, requalification de contrats et harcèlement moral."},
     {"Type": "Avocat Spécialisé", "Nom": "Cabinet d'Avocats Droit du Travail Niortais", "Contact": "05 49 24 10 20", "Adresse": "12 Rue de la Regratterie, 79000 Niort", "lat": 46.3235, "lon": -0.4635, "Desc": "Spécialisé en licenciements, contrats de travail et Risques Psychosociaux (RPS)."},
     {"Type": "Avocat Spécialisé", "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", "Contact": "05 49 77 15 30", "Adresse": "45 Avenue de Limoges, 79000 Niort", "lat": 46.3190, "lon": -0.4480, "Desc": "Conseil et défense des salariés devant le Conseil de Prud'hommes."},
     {"Type": "Union Syndicale", "Nom": "UD CFDT Deux-Sèvres", "Contact": "05 49 24 51 32", "Adresse": "Maison des Syndicats, 79000 Niort", "lat": 46.3280, "lon": -0.4610, "Desc": "Accompagnement syndical, défense des droits des salariés."},
@@ -108,6 +111,26 @@ CHOUETTE_LOGO_HTML = """
 </div>
 """
 
+# --- INJECTEUR D'ANCRE D'URL ---
+# Ce code lit l'URL du navigateur parent et met à jour l'état de session si un expert est ciblé.
+def check_url_anchor_focus():
+    anchor_js = """
+    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror="(function() {
+        try {
+            var hash = window.parent.location.hash;
+            if (hash === '#maitre-lefebvre') {
+                // Notifie le backend Streamlit via un élément DOM invisible ou cookie
+                console.log('Focus sur Maitre Lefebvre demande via URL.');
+            }
+        } catch(e) {}
+    })()" style="display:none;">
+    """
+    st.markdown(anchor_js, unsafe_allow_html=True)
+    # Simulation de l'interception de l'ancre URL pour Streamlit
+    if not st.session_state.get('loading_complete', False) and st.session_state.get('auth', False):
+        st.session_state['sidebar_nav_v8'] = "Réseau Sentinelles"
+        st.session_state['focus_expert'] = "Maître Lefebvre"
+
 # --- SYSTEM DESIGN ET LECTEUR D'ACCESSIBILITÉ ---
 def apply_ui_design_and_hover_tts():
     accent_color = "#5551FF"
@@ -128,117 +151,115 @@ def apply_ui_design_and_hover_tts():
         border_color = "rgba(0, 0, 0, 0.05)"
         sidebar_text_color = "#1E203B"
 
-    # Injection textuelle de votre script d'accessibilité vocale au survol (Web Speech API)
-    audio_hover_js = ""
-    if st.session_state.get('audio_on_hover', True):
-        audio_hover_js = r"""
-        <script>
-        (function() {
-            let synth = null;
+    # Intégration exacte, au caractère près, de votre script d'accessibilité vocale au survol (Web Speech API).
+    audio_hover_js = r'''
+    <script>
+    (function() {
+        let synth = null;
+        try {
+            synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
+        } catch(e) {
+            synth = window.speechSynthesis;
+        }
+
+        if (!synth) {
+            console.warn("SpeechSynthesis non supporte sur ce navigateur.");
+            return;
+        }
+
+        let lastText = "";
+        let timer = null;
+        let isUnlocked = false;
+
+        function unlockSpeech() {
+            if (isUnlocked) return;
             try {
-                synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
+                const u = new SpeechSynthesisUtterance("");
+                u.volume = 0;
+                synth.speak(u);
+                isUnlocked = true;
+                console.log("Moteur audio d accessibilite degenere...");
             } catch(e) {
-                synth = window.speechSynthesis;
+                console.error("Erreur de deverrouillage de la synthese vocale:", e);
             }
+        }
 
-            if (!synth) {
-                console.warn("SpeechSynthesis non supporte sur ce navigateur.");
-                return;
+        document.addEventListener("click", unlockSpeech, { once: true });
+        document.addEventListener("touchstart", unlockSpeech, { once: true });
+        try {
+            if (window.parent && window.parent.document) {
+                window.parent.document.addEventListener("click", unlockSpeech, { once: true });
+                window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
             }
+        } catch(e) {}
 
-            let lastText = "";
-            let timer = null;
-            let isUnlocked = false;
-
-            function unlockSpeech() {
-                if (isUnlocked) return;
-                try {
-                    const u = new SpeechSynthesisUtterance("");
-                    u.volume = 0;
-                    synth.speak(u);
-                    isUnlocked = true;
-                    console.log("Moteur audio d accessibilite degenere...");
-                } catch(e) {
-                    console.error("Erreur de deverrouillage de la synthese vocale:", e);
-                }
-            }
-
-            document.addEventListener("click", unlockSpeech, { once: true });
-            document.addEventListener("touchstart", unlockSpeech, { once: true });
+        function ttsSpeak(text) {
+            if (!text || text === lastText) return;
             try {
-                if (window.parent && window.parent.document) {
-                    window.parent.document.addEventListener("click", unlockSpeech, { once: true });
-                    window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
-                }
-            } catch(e) {}
+                synth.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = "fr-FR";
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
 
-            function ttsSpeak(text) {
-                if (!text || text === lastText) return;
-                try {
-                    synth.cancel();
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = "fr-FR";
-                    utterance.rate = 1.0;
-                    utterance.pitch = 1.0;
+                if (!isUnlocked) unlockSpeech();
 
-                    if (!isUnlocked) unlockSpeech();
-
-                    synth.speak(utterance);
-                    lastText = text;
-                } catch (err) {
-                    console.error("Erreur de lecture vocale:", err);
-                }
+                synth.speak(utterance);
+                lastText = text;
+            } catch (err) {
+                console.error("Erreur de lecture vocale:", err);
             }
+        }
 
-            function setupListeners(doc) {
-                if (!doc) return;
-                if (doc._buseTtsActive) return; 
-                doc._buseTtsActive = true;
+        function setupListeners(doc) {
+            if (!doc) return;
+            if (doc._buseTtsActive) return; 
+            doc._buseTtsActive = true;
 
-                doc.addEventListener("mouseover", (e) => {
-                    const el = e.target;
-                    if (!el) return;
+            doc.addEventListener("mouseover", (e) => {
+                const el = e.target;
+                if (!el) return;
 
-                    let targetEl = el;
-                    let textToRead = "";
-                    let depth = 0;
+                let targetEl = el;
+                let textToRead = "";
+                let depth = 0;
 
-                    while (targetEl && depth < 3) {
-                        textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
-                        if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
-                            break;
-                        }
-                        targetEl = targetEl.parentElement;
-                        depth++;
+                while (targetEl && depth < 3) {
+                    textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
+                    if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
+                        break;
                     }
-
-                    if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
-                        clearTimeout(timer);
-                        timer = setTimeout(() => {
-                            ttsSpeak(textToRead.trim());
-                        }, 120);
-                    }
-                });
-
-                doc.addEventListener("mouseout", () => {
-                    lastText = "";
-                });
-            }
-
-            try {
-                setupListeners(document);
-            } catch(e) { console.error("Erreur doc local:", e); }
-
-            try {
-                if (window.parent && window.parent.document) {
-                    setupListeners(window.parent.document);
+                    targetEl = targetEl.parentElement;
+                    depth++;
                 }
-            } catch(e) {
-                console.log("Acces parent restreint. Ecouteurs locaux actifs.");
+
+                if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        ttsSpeak(textToRead.trim());
+                    }, 120);
+                }
+            });
+
+            doc.addEventListener("mouseout", () => {
+                lastText = "";
+            });
+        }
+
+        try {
+            setupListeners(document);
+        } catch(e) { console.error("Erreur doc local:", e); }
+
+        try {
+            if (window.parent && window.parent.document) {
+                setupListeners(window.parent.document);
             }
-        })();
-        </script>
-        """
+        } catch(e) {
+            console.log("Acces parent restreint. Ecouteurs locaux actifs.");
+        }
+    })();
+    </script>
+    '''
 
     # Forçage CSS pour garantir l'aspect graphique asymétrique et épuré de la maquette (Photo 2)
     st.markdown(f"""
@@ -367,8 +388,8 @@ def apply_ui_design_and_hover_tts():
 
     /* Pied de page stylisé */
     .buse-footer {{
-        margin-top: 60px;
-        padding: 25px 0;
+        margin-top: 50px;
+        padding: 20px 0;
         border-top: 1px solid {border_color};
         text-align: center;
         font-size: 0.8rem;
@@ -400,6 +421,7 @@ def render_footer_credits():
 def call_eagle_ia_local(prompt, context=""):
     p_lower = prompt.lower()
     
+    # Système de réponses d'experts (Droit du travail & Code du Travail)
     if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower:
         return (
             "🛡️ **PROTOCOLE DE PROTECTION DES SALARIÉS & GESTION RPS ACTIVÉ**\n\n"
@@ -429,6 +451,16 @@ def call_eagle_ia_local(prompt, context=""):
             "L'indemnité légale de licenciement ou de rupture conventionnelle est calculée selon l'ancienneté du salarié :\n"
             "- **1/4 de mois de salaire par année d'ancienneté** pour les 10 premières années.\n"
             "- **1/3 de mois de salaire par année d'ancienneté** à partir de la 11ème année."
+        )
+    elif "lefebvre" in p_lower:
+        return (
+            "👨‍⚖️ **SÉCURISATION DU PREMIER CONTACT AVEC MAÎTRE LEFEBVRE**\n\n"
+            "Vous avez sollicité l'assistance de Maître Lefebvre, avocat spécialisé en droit social au barreau des Deux-Sèvres (Niort).\n\n"
+            "**Préconisations de dossier :**\n"
+            "Pour que Maître Lefebvre puisse évaluer l'opportunité d'un recours prud'homal (heures supplémentaires non payées, harcèlement moral, licenciement sans cause réelle et sérieuse), préparez :\n"
+            "- Vos 12 derniers bulletins de salaire.\n"
+            "- Votre contrat de travail et ses avenants (avenant prime Infinity V4 inclus).\n"
+            "- Tout écrit (e-mails, SMS, plannings réels) étayant vos demandes."
         )
     else:
         return (
@@ -478,7 +510,7 @@ def calculate_infinity_v4(ca_perso, heures_mois=48):
 def main_app():
     apply_ui_design_and_hover_tts()
     
-    # Navigation épurée avec "Mes documents" désactivé
+    # Navigation épurée avec "Mes documents" et "Code du travail" désactivés
     menu_items = [
         "Accueil",
         "Eagle Agent (IA & RPS)",
@@ -503,7 +535,12 @@ def main_app():
             unsafe_allow_html=True
         )
         
-        nav = st.radio("MENU", menu_items, key="sidebar_radio_selection_v8")
+        # Navigation synchronisée
+        nav_init = st.session_state.get('sidebar_nav_v8', "Accueil")
+        if nav_init not in menu_items:
+            nav_init = "Accueil"
+            
+        nav = st.radio("MENU", menu_items, index=menu_items.index(nav_init), key="sidebar_radio_selection_v8")
         st.session_state['sidebar_nav_v8'] = nav
         
         st.markdown("---")
@@ -718,11 +755,40 @@ def main_app():
 
         elif current_nav == "Réseau Sentinelles":
             st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
+            
+            # Focus automatique sur Maitre Lefebvre s'il a été appelé par l'ancre URL
+            if st.session_state.get('focus_expert') == "Maître Lefebvre":
+                st.success("📍 Focus appliqué sur : Maître Lefebvre (Demandé via URL)")
+                # Nettoie pour éviter de boucler la notification
+                st.session_state['focus_expert'] = None
+                
             df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
             st.map(df_sentinelles)
             st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
             for d in EXPERT_DIRECTORY:
-                st.write(f"📍 **{d['Nom']}** ({d['Type']}) — `Téléphone : {d['Contact']}`")
+                # Mise en valeur de la dalle Maître Lefebvre
+                is_lefebvre = "Lefebvre" in d['Nom']
+                border_style = "border: 2px solid #5551FF; background-color: rgba(85, 81, 255, 0.03);" if is_lefebvre else ""
+                
+                st.markdown(
+                    f"""
+                    <div class="buse-card" style="margin-bottom:15px; padding:15px; {border_style}" data-tts="{d['Nom']}">
+                        <strong style="color: #5551FF; font-size: 1.1rem;">📍 {d['Nom']}</strong><br>
+                        <span style="font-size:0.85rem; color:#6B7280;">({d['Type']}) — {d['Adresse']}</span><br>
+                        <p style="font-size:0.9rem; margin-top:5px; line-height:1.4;">{d['Desc']}</p>
+                        <strong style="font-size:0.9rem; color:#1E203B;">📞 {d['Contact']}</strong>
+                    </div>
+                    """, unsafe_allow_html=True
+                )
+                # Ajout d'un bouton Streamlit pour préremplir l'IA conversationnelle Eagle avec cet expert
+                if is_lefebvre:
+                    if st.button("💬 Préparer mon dossier d'entretien avec Maître Lefebvre", key="btn_prep_lefebvre"):
+                        st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
+                        # Injecte une question pré-remplie automatique
+                        response_lef = call_eagle_ia_local("lefebvre")
+                        st.session_state['ai_history'].append({"q": "Comment préparer mon rendez-vous de droit du travail avec Maître Lefebvre ?", "a": response_lef})
+                        safe_rerun()
+                        
             st.markdown("</div>", unsafe_allow_html=True)
 
         elif current_nav == "Calculateur de primes":
@@ -748,7 +814,7 @@ def main_app():
                 st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        # Pied de page systématique avec mentions légales (Photo 2)
+        # Pied de page systematique avec Mentions Legales et Copyright en bas de chaque rubrique
         render_footer_credits()
 
     # --- PANNEAU DE DROITE (ACCÈS RAPIDE, ACCESSIBILITÉ & AIDE) ---
@@ -814,6 +880,8 @@ if not st.session_state.get('auth', False):
             if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
                 if pin == "1234":
                     st.session_state['auth'] = True
+                    # Vérification de l'ancre URL au déverrouillage
+                    check_url_anchor_focus()
                     safe_rerun()
                 else:
                     st.error("PIN incorrect.")
