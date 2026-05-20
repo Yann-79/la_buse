@@ -1,107 +1,155 @@
-import streamlit as st
-import os
-from datetime import datetime
-import traceback
-import time
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Buse - Assistant intelligent droits du travail</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .owl-logo { filter: drop-shadow(0 10px 15px rgba(85, 81, 255, 0.3)); }
+        .card-hover:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+        .nav-active { background-color: #4f46e5; color: white; border-radius: 9999px; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
 
-st.set_page_config(page_title="La Buse", page_icon="🦉", layout="wide")
-
-# ===================== TENTATIVE D'IMPORT LANGCHAIN =====================
-try:
-    from langchain_xai import ChatXAI
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    LANGCHAIN_AVAILABLE = False
-    st.warning("⚠️ Package `langchain-xai` non installé. Certaines fonctionnalités IA seront limitées.")
-
-st.markdown("""
-<style>
-    .main {background-color: #f8fafc;}
-    .stButton>button {background: #4f46e5; color: white; border-radius: 12px;}
-    .error-box {background: #fee2e2; padding: 15px; border-radius: 10px; border-left: 5px solid #ef4444;}
-    .success-box {background: #ecfdf5; padding: 15px; border-radius: 10px; border-left: 5px solid #10b981;}
-</style>
-""", unsafe_allow_html=True)
-
-# ===================== UTILITAIRE SÉCURISÉ =====================
-def safe_execute_with_progress(func, *args, progress_text="Traitement en cours...", error_msg="Une erreur est survenue", **kwargs):
-    progress_bar = st.progress(0, text=progress_text)
-    try:
-        for i in range(1, 101, 20):
-            time.sleep(0.1)
-            progress_bar.progress(i, text=progress_text)
-        
-        result = func(*args, **kwargs)
-        progress_bar.progress(100, text="✅ Terminé")
-        time.sleep(0.3)
-        progress_bar.empty()
-        return result
-    except Exception as e:
-        progress_bar.empty()
-        st.markdown(f"""
-        <div class="error-box">
-            ❌ <strong>{error_msg}</strong><br>
-            {str(e)}
+    <!-- PIN SCREEN -->
+    <div id="pin-screen" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div class="max-w-sm w-full px-6 text-center">
+            <div class="mx-auto w-32 h-32 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl flex items-center justify-center text-7xl mb-8 owl-logo">
+                🦉
+            </div>
+            <h2 class="text-3xl font-bold mb-2">Accès sécurisé</h2>
+            <p class="text-gray-500 mb-8">Saisissez votre code PIN</p>
+            <input type="password" id="pin-input" maxlength="4" class="w-full text-center text-5xl tracking-widest py-6 bg-gray-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-300" placeholder="••••">
+            <button onclick="unlockApp()" class="mt-8 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-2xl text-lg">Déverrouiller</button>
+            <p id="pin-error" class="hidden text-red-500 mt-4">Code PIN incorrect</p>
         </div>
-        """, unsafe_allow_html=True)
-        return None
+    </div>
 
-# ===================== SIDEBAR =====================
-with st.sidebar:
-    st.title("🦉 La Buse")
-    st.caption("Assistant Droit du Travail")
-    api_key = st.text_input("xAI API Key (Grok)", type="password", value=os.getenv("XAI_API_KEY", ""))
-    
-    st.divider()
-    page = st.radio("Navigation", 
-                   ["Accueil", 
-                    "📜 Convention Collective",
-                    "🏖️ Congés Payés", 
-                    "⏰ Jours de RTT"])
+    <div class="flex h-screen hidden" id="app">
 
-# ===================== AUTH =====================
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "current_cc" not in st.session_state:
-    st.session_state.current_cc = None
+        <!-- SIDEBAR MODERNE (inspiré Photo 2) -->
+        <div class="w-72 bg-white border-r shadow-xl flex flex-col">
+            <div class="p-6 border-b flex items-center gap-3">
+                <div class="w-11 h-11 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white text-3xl owl-logo">
+                    🦉
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight">la buse</h1>
+                    <p class="text-emerald-600 text-sm font-medium">Abonnement Actif</p>
+                </div>
+            </div>
 
-if not st.session_state.authenticated:
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.markdown("<h1 style='text-align:center'>🦉 La Buse</h1>", unsafe_allow_html=True)
-        pin = st.text_input("Code PIN", type="password", max_chars=4)
-        if st.button("Déverrouiller", use_container_width=True):
-            if pin == "1234":
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("❌ Code PIN incorrect")
-    st.stop()
+            <nav class="flex-1 p-4 space-y-1">
+                <button onclick="switchView('Accueil')" class="nav-btn w-full text-left px-5 py-3.5 flex items-center gap-3 hover:bg-gray-100 rounded-2xl" data-view="Accueil">🏠 Accueil</button>
+                <button onclick="switchView('Eagle')" class="nav-btn w-full text-left px-5 py-3.5 flex items-center gap-3 hover:bg-gray-100 rounded-2xl" data-view="Eagle">🦅 Eagle Agent</button>
+                <button onclick="switchView('Sentinelles')" class="nav-btn w-full text-left px-5 py-3.5 flex items-center gap-3 hover:bg-gray-100 rounded-2xl" data-view="Sentinelles">🛡️ Sentinelles</button>
+                <button onclick="switchView('Primes')" class="nav-btn w-full text-left px-5 py-3.5 flex items-center gap-3 hover:bg-gray-100 rounded-2xl" data-view="Primes">💎 Primes & Salaires</button>
+                <button onclick="switchView('Conges')" class="nav-btn w-full text-left px-5 py-3.5 flex items-center gap-3 hover:bg-gray-100 rounded-2xl" data-view="Conges">🏖️ Congés & RTT</button>
+            </nav>
+        </div>
 
-# ===================== PAGE CONVENTION COLLECTIVE =====================
-if page == "📜 Convention Collective":
-    st.title("📜 Convention Collective")
-    
-    idcc = st.text_input("IDCC ou Nom de la Convention", placeholder="650, Syntec...")
-    
-    if st.button("Charger Convention", type="primary"):
-        if not LANGCHAIN_AVAILABLE:
-            st.error("❌ `langchain-xai` n'est pas installé. Exécutez : `pip install langchain-xai`")
-        elif not api_key:
-            st.warning("⚠️ Veuillez entrer votre clé API Grok")
-        else:
-            def load_convention():
-                llm = ChatXAI(api_key=api_key, model="grok-4", temperature=0.2)
-                resp = llm.invoke(f"Résume les points clés de la convention collective {idcc}")
-                return {"idcc": idcc, "details": resp.content}
+        <!-- MAIN CONTENT -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+
+            <!-- HEADER -->
+            <header class="h-16 bg-white border-b px-8 flex items-center justify-between">
+                <div class="relative w-96">
+                    <input id="global-search" type="text" class="w-full bg-gray-100 rounded-full py-3 pl-12 focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Rechercher une question, un document...">
+                    <span class="absolute left-5 top-3.5 text-gray-400">🔍</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-2xl text-sm font-medium">Niort • 79</div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 bg-indigo-100 rounded-2xl flex items-center justify-center font-bold text-indigo-700">A</div>
+                        <span class="font-medium">Alexandre</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- CONTENT -->
+            <div class="flex-1 p-8 overflow-auto" id="main-content">
+
+                <!-- ACCUEIL -->
+                <div id="view-Accueil" class="view">
+                    <div class="max-w-6xl mx-auto">
+                        <div class="flex justify-between items-start mb-10">
+                            <div>
+                                <h1 class="text-5xl font-bold leading-tight">La buse, votre moteur<br>de recherche au service<br><span class="text-indigo-600">du monde du travail.</span></h1>
+                                <p class="text-xl text-gray-600 mt-4">Posez vos questions • Analysez vos documents • Défendez vos droits</p>
+                            </div>
+                            <div class="text-8xl">🦉</div>
+                        </div>
+
+                        <!-- Eagle Agent -->
+                        <div class="bg-white rounded-3xl p-8 shadow-sm">
+                            <div class="flex items-center gap-4 mb-6">
+                                <span class="text-5xl">🦅</span>
+                                <div>
+                                    <h2 class="text-2xl font-bold">Eagle Agent IA</h2>
+                                    <p class="text-gray-500">Audit intelligent de contrats, fiches de paie et contestations</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <input id="home-query" type="text" class="flex-1 bg-gray-100 rounded-2xl px-6 py-5 focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Ex: Mon contrat est-il conforme ? Analyse ma fiche de paie...">
+                                <button onclick="triggerAnalysis()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-10 rounded-2xl font-semibold">Analyser</button>
+                            </div>
+                            <div id="analysis-result" class="hidden mt-8 p-6 bg-indigo-50 rounded-2xl"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Autres vues à développer -->
+                <div id="view-Eagle" class="view hidden">Eagle Agent - Chatbot avancé</div>
+                <div id="view-Sentinelles" class="view hidden">Réseau Sentinelles</div>
+                <div id="view-Primes" class="view hidden">Calculateur Primes</div>
+                <div id="view-Conges" class="view hidden">Congés & RTT</div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function unlockApp() {
+            if (document.getElementById('pin-input').value === '1234') {
+                document.getElementById('pin-screen').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                switchView('Accueil');
+            } else {
+                document.getElementById('pin-error').classList.remove('hidden');
+            }
+        }
+
+        function switchView(view) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            const active = document.getElementById(`view-${view}`);
+            if (active) active.classList.remove('hidden');
+        }
+
+        function triggerAnalysis() {
+            const query = document.getElementById('home-query').value.trim();
+            if (!query) return;
             
-            result = safe_execute_with_progress(load_convention, progress_text="Chargement via Grok...")
-            if result:
-                st.session_state.current_cc = result
-                st.success(f"✅ Convention {idcc} chargée")
+            const result = document.getElementById('analysis-result');
+            result.classList.remove('hidden');
+            result.innerHTML = `
+                <h3 class="font-bold text-indigo-700 mb-3">Analyse Eagle Agent</h3>
+                <p class="font-medium">Question : ${query}</p>
+                <div class="mt-6 text-gray-700 leading-relaxed">
+                    Selon les informations de votre contrat et les textes en vigueur, voici l'analyse détaillée...
+                </div>
+            `;
+        }
 
-else:
-    st.title(page)
-    st.info("Section en cours de développement")
-
-st.caption("© 2026 La Buse • Gestion des erreurs + Progress Bar")
+        // Touche Entrée sur PIN
+        document.getElementById('pin-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') unlockApp();
+        });
+    </script>
+</body>
+</html>
