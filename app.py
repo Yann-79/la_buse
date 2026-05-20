@@ -1,1089 +1,1062 @@
-# -*- coding: utf-8 -*-
-import streamlit as st
-import pandas as pd
-import time
-import requests
-import json
-import base64
-import math
-import urllib.parse
-import os
-from datetime import datetime
-
-# # Chosen Palette: Apple Violet Premium (Arrière-plan: #F4F5FC, Cartes: #FFFFFF, Accent: #5551FF, Survol: #413CFF, Texte: #1E203B)
-# # Application Structure Plan: 
-# # La structure de l'application est calquée fidèlement sur la Photo 2.
-# # Elle comprend :
-# # 1. Une barre latérale gauche pour naviguer, gérer l'accessibilité (OFF par défaut) et réinitialiser en mode normal.
-# # 2. Un panneau central large pour le flux principal (carrousel, recherche Grok AI, dalles d'actions, réassurance, prise de contact Sentinelles).
-# # 3. Un panneau droit pour les outils rapides et le paramétrage interactif de l'accessibilité.
-
-# --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(
-    page_title="La Buse - Votre assistant intelligent du monde du travail",
-    page_icon="🦉",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# --- CONSTRUCTEUR DE REDIRECTION ET RERUN ROBUSTE ---
-def safe_rerun():
-    try:
-        st.rerun()
-    except AttributeError:
-        st.experimental_rerun()
-
-# --- CHARGEMENT DYNAMIQUE DES SENTINELLES (Depuis GitHub) ---
-@st.cache_data
-def load_experts_data():
-    fallback_data = [
-        {"Type": "Avocat Spécialisé", "Nom": "Maître Lefebvre - Cabinet Droit du Travail Niort", "Contact": "05 49 24 88 99", "Email": "m.lefebvre@avocats-niort-travail.fr", "Adresse": "24 Rue de la Gare, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3210, "lon": -0.4580, "Desc": "Expert reconnu en défense des salariés, contentieux prud'homal, requalification de contrats et harcèlement moral."},
-        {"Type": "Avocat Spécialisé", "Nom": "Cabinet d'Avocats Droit du Travail Niortais", "Contact": "05 49 24 10 20", "Email": "secretariat@travail-niort-avocats.fr", "Adresse": "12 Rue de la Regratterie, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3235, "lon": -0.4635, "Desc": "Spécialisé en licenciements, contrats de travail et Risques Psychosociaux (RPS)."},
-        {"Type": "Avocat Spécialisé", "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", "Contact": "05 49 77 15 30", "Email": "c.valois@deux-sevres-avocats.fr", "Adresse": "45 Avenue de Limoges, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3190, "lon": -0.4480, "Desc": "Conseil et défense des salariés devant le Conseil de Prud'hommes."},
-        {"Type": "Union Syndicale", "Nom": "UD CFDT Deux-Sèvres", "Contact": "05 49 24 51 32", "Email": "ud-79@cfdt.fr", "Adresse": "Maison des Syndicats, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3280, "lon": -0.4610, "Desc": "Accompagnement syndical, défense des droits des salariés."},
-        {"Type": "Union Syndicale", "Nom": "Union Départementale CGT 79", "Contact": "05 49 24 35 12", "Email": "ud79@cgt.fr", "Adresse": "Place de la Comédie, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3262, "lon": -0.4595, "Desc": "Permanences juridiques et défense face au harcèlement et à la pression au travail."},
-        {"Type": "Défenseur des Droits", "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", "Contact": "05 49 04 00 00", "Email": "pad-niort@justice.fr", "Adresse": "10 Rue du Tribunal, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3242, "lon": -0.4645, "Desc": "Médiateur de proximité pour la défense de vos libertés individuelles au travail."}
-    ]
-    try:
-        if os.path.exists("experts_data.json"):
-            with open("experts_data.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data.get("sentinelles", fallback_data)
-    except Exception:
-        pass
-    return fallback_data
-
-EXPERT_DIRECTORY = load_experts_data()
-
-# --- INITIALISATION SÉCURISÉE DE L'ÉTAT DE SESSION ---
-if 'auth' not in st.session_state:
-    st.session_state['auth'] = False
-if 'loading_complete' not in st.session_state:
-    st.session_state['loading_complete'] = False
-if 'ai_history' not in st.session_state:
-    st.session_state['ai_history'] = []
-if 'sidebar_nav_v8' not in st.session_state:
-    st.session_state['sidebar_nav_v8'] = "Accueil"
-
-# Mode accessibilité désactivé (OFF) par défaut
-if 'audio_on_hover' not in st.session_state:
-    st.session_state['audio_on_hover'] = False
-if 'non_voyant' not in st.session_state:
-    st.session_state['non_voyant'] = False
-if 'high_contrast' not in st.session_state:
-    st.session_state['high_contrast'] = False
-if 'transcription_audio' not in st.session_state:
-    st.session_state['transcription_audio'] = False
-
-if 'analysis_results' not in st.session_state:
-    st.session_state['analysis_results'] = None
-if 'user_location' not in st.session_state:
-    st.session_state['user_location'] = {"lat": 46.3235, "lon": -0.4635}  # Niort par défaut
-if 'carousel_index' not in st.session_state:
-    st.session_state['carousel_index'] = 0
-if 'focus_expert' not in st.session_state:
-    st.session_state['focus_expert'] = None
-if 'pending_query' not in st.session_state:
-    st.session_state['pending_query'] = None
-if 'home_query_answer' not in st.session_state:
-    st.session_state['home_query_answer'] = None
-
-# --- DONNÉES DU CARROUSEL D'ACCUEIL ---
-CAROUSEL_ITEMS = [
-    {
-        "titre": "🛡️ Votre santé est une priorité absolue",
-        "description": "L'employeur est légalement tenu de protéger votre santé physique et mentale (Article L4121-1 du Code du travail). Ne restez pas isolé face aux pressions managériales.",
-        "badge": "Prévention RPS"
-    },
-    {
-        "titre": "📈 Déplafonnement de prime Infinity V4",
-        "description": "Atteignez les paliers de bonus de 20% à 100% en surveillant votre écart de CA magasin par rapport au seuil de référence de 1300 €.",
-        "badge": "Primes & Salaires"
-    },
-    {
-        "titre": "⚖️ Droits & Prévoyance du Salarié",
-        "description": "Bénéficiez de grilles de salaires garanties, de majorations pour heures de nuit et de garanties de prévoyance spécifiques selon vos accords.",
-        "badge": "Vos Droits"
-    }
-]
-
-# --- DESIGN PREMIUM LOGO DE LA CHOUETTE (PHOTO 2) ---
-CHOUETTE_LOGO_HTML = """
-<div style="display: flex; justify-content: center; margin-bottom: 25px;">
-    <div style="
-        width: 140px; height: 140px; 
-        background: radial-gradient(circle, #E8E7FF 0%, #C3BFFF 100%); 
-        border-radius: 50%; 
-        position: relative; 
-        box-shadow: 0 10px 30px rgba(85, 81, 255, 0.25);
-        display: flex; align-items: center; justify-content: center;
-    ">
-        <!-- Oreilles Stylisées -->
-        <div style="position: absolute; top: 12px; left: 28px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 35px solid #5551FF; transform: rotate(-18deg);"></div>
-        <div style="position: absolute; top: 12px; right: 28px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 35px solid #5551FF; transform: rotate(18deg);"></div>
-        <!-- Corps principal de la chouette de la Photo 2 -->
-        <div style="width: 90px; height: 105px; background-color: #5551FF; border-radius: 50% 50% 45% 45%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-            <!-- Ventre Blanc / Lavande -->
-            <div style="position: absolute; bottom: -8px; width: 70px; height: 70px; background-color: #F4F5FC; border-radius: 50%;"></div>
-        </div>
-        <!-- Yeux Expressifs avec reflets réalistes de la Photo 2 -->
-        <div style="position: absolute; top: 40px; left: 32px; width: 38px; height: 38px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);">
-            <div style="width: 22px; height: 22px; background-color: #574B3C; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center;">
-                <div style="width: 12px; height: 12px; background-color: #1E203B; border-radius: 50%; position: relative;">
-                    <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
-                </div>
-            </div>
-        </div>
-        <div style="position: absolute; top: 40px; right: 32px; width: 38px; height: 38px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);">
-            <div style="width: 22px; height: 22px; background-color: #574B3C; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center;">
-                <div style="width: 12px; height: 12px; background-color: #1E203B; border-radius: 50%; position: relative;">
-                    <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
-                </div>
-            </div>
-        </div>
-        <!-- Bec Orange Triangle -->
-        <div style="position: absolute; top: 68px; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 15px solid #FF9F43; z-index: 10;"></div>
-    </div>
-</div>
-"""
-
-# --- INJECTEUR D'ANCRE D'URL ---
-def check_url_anchor_focus():
-    anchor_js = """
-    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onerror="(function() {
-        try {
-            var hash = window.parent.location.hash;
-            if (hash === '#maitre-lefebvre') {
-                console.log('Focus sur Maitre Lefebvre demande via URL.');
-            }
-        } catch(e) {}
-    })()" style="display:none;">
-    """
-    st.markdown(anchor_js, unsafe_allow_html=True)
-    if not st.session_state.get('loading_complete', False) and st.session_state.get('auth', False):
-        st.session_state['sidebar_nav_v8'] = "Réseau Sentinelles"
-        st.session_state['focus_expert'] = "Maître Lefebvre"
-
-# --- SYSTEM DESIGN ET LECTEUR D'ACCESSIBILITÉ ---
-def apply_ui_design_and_hover_tts():
-    accent_color = "#5551FF"
-    hover_color = "#413CFF"
-    
-    if st.session_state.get('high_contrast', False):
-        bg_color = "#000000"
-        card_bg = "#111111"
-        text_primary = "#FFFFFF"
-        text_secondary = "#FFFF00"
-        border_color = "#FFFF00"
-        sidebar_text_color = "#FFFFFF"
-    else:
-        bg_color = "#F4F5FC"
-        card_bg = "#FFFFFF"
-        text_primary = "#1E203B"
-        text_secondary = "#6B7280"
-        border_color = "rgba(0, 0, 0, 0.05)"
-        sidebar_text_color = "#1E203B"
-
-    # Intégration exacte avec protection CORS pour Streamlit Cloud
-    audio_hover_js = ""
-    if st.session_state.get('audio_on_hover', False):
-        audio_hover_js = r'''
-        <script>
-        (function() {
-            let synth = null;
-            try {
-                synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
-            } catch(e) {
-                synth = window.speechSynthesis;
-            }
-
-            if (!synth) {
-                console.warn("SpeechSynthesis non supporte sur ce navigateur.");
-                return;
-            }
-
-            let lastText = "";
-            let timer = null;
-            let isUnlocked = false;
-
-            function unlockSpeech() {
-                if (isUnlocked) return;
-                try {
-                    const u = new SpeechSynthesisUtterance("");
-                    u.volume = 0;
-                    synth.speak(u);
-                    isUnlocked = true;
-                } catch(e) {
-                    console.error("Erreur de deverrouillage de la synthese vocale:", e);
-                }
-            }
-
-            document.addEventListener("click", unlockSpeech, { once: true });
-            document.addEventListener("touchstart", unlockSpeech, { once: true });
-            try {
-                // Securisation CORS pour eviter de faire planter le site sur share.streamlit.io
-                if (window.parent && window.parent.document && window.location.host === window.parent.location.host) {
-                    window.parent.document.addEventListener("click", unlockSpeech, { once: true });
-                    window.parent.document.addEventListener("touchstart", unlockSpeech, { once: true });
-                }
-            } catch(e) {}
-
-            function ttsSpeak(text) {
-                if (!text || text === lastText) return;
-                try {
-                    synth.cancel();
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = "fr-FR";
-                    utterance.rate = 1.0;
-                    utterance.pitch = 1.0;
-
-                    if (!isUnlocked) unlockSpeech();
-
-                    synth.speak(utterance);
-                    lastText = text;
-                } catch (err) {
-                    console.error("Erreur de lecture vocale:", err);
-                }
-            }
-
-            function setupListeners(doc) {
-                if (!doc) return;
-                if (doc._buseTtsActive) return; 
-                doc._buseTtsActive = true;
-
-                doc.addEventListener("mouseover", (e) => {
-                    const el = e.target;
-                    if (!el) return;
-
-                    let targetEl = el;
-                    let textToRead = "";
-                    let depth = 0;
-
-                    while (targetEl && depth < 3) {
-                        textToRead = targetEl.getAttribute("data-tts") || targetEl.innerText || targetEl.textContent;
-                        if (targetEl.matches("h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]")) {
-                            break;
-                        }
-                        targetEl = targetEl.parentElement;
-                        depth++;
-                    }
-
-                    if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300) {
-                        clearTimeout(timer);
-                        timer = setTimeout(() => {
-                            ttsSpeak(textToRead.trim());
-                        }, 120);
-                    }
-                });
-
-                doc.addEventListener("mouseout", () => {
-                    lastText = "";
-                });
-            }
-
-            try {
-                setupListeners(document);
-            } catch(e) { console.error("Erreur doc local:", e); }
-
-            try {
-                if (window.parent && window.parent.document && window.location.host === window.parent.location.host) {
-                    setupListeners(window.parent.document);
-                }
-            } catch(e) {
-                console.log("Acces parent restreint (CORS). Ecouteurs locaux actifs.");
-            }
-        })();
-        </script>
-        '''
-
-    # CSS de Rendu Premium asymétrique (Photo 2)
-    st.markdown(f"""
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Buse - Assistant intelligent pour les droits du travail</title>
+    <!-- Tailwind CSS pour un design moderne, épuré et réactif -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js pour des visualisations de salaires et primes -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    .stApp {{
-        background-color: {bg_color};
-        color: {text_primary};
-        font-family: 'Inter', sans-serif;
-    }}
-    
-    /* Menu Latéral Premium */
-    section[data-testid="stSidebar"] {{
-        background-color: {card_bg} !important;
-        border-right: 1px solid {border_color} !important;
-    }}
-    
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3,
-    section[data-testid="stSidebar"] h4,
-    section[data-testid="stSidebar"] div {{
-        color: {sidebar_text_color} !important;
-        font-weight: 500 !important;
-    }}
-    
-    section[data-testid="stSidebar"] .stRadio label p {{
-        color: {sidebar_text_color} !important;
-        font-size: 0.95rem !important;
-        font-weight: 500 !important;
-    }}
-
-    /* Dalles, Cartes et Blocs de Contenu modernisés */
-    .buse-card, div[data-testid="stVerticalBlockBorder"] {{
-        background-color: {card_bg} !important;
-        border-radius: 20px !important;
-        padding: 26px !important;
-        margin-bottom: 22px !important;
-        border: 1px solid {border_color} !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02) !important;
-        transition: transform 0.2s, box-shadow 0.2s !important;
-    }}
-    
-    .buse-card:hover, div[data-testid="stVerticalBlockBorder"]:hover {{
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 30px rgba(85, 81, 255, 0.08) !important;
-    }}
-    
-    .buse-title-primary {{
-        font-size: 2.6rem;
-        font-weight: 800;
-        line-height: 1.25;
-        color: {text_primary};
-        margin-bottom: 12px;
-        letter-spacing: -0.025em;
-    }}
-    
-    .buse-highlight {{
-        color: {accent_color};
-    }}
-    
-    .buse-subtitle {{
-        font-size: 1.1rem;
-        color: {text_secondary};
-        margin-bottom: 30px;
-    }}
-    
-    /* Boutons premium arrondis de la Photo 2 */
-    .stButton>button {{
-        background-color: {accent_color} !important;
-        color: white !important;
-        border-radius: 14px !important;
-        border: none !important;
-        padding: 14px 28px !important;
-        font-weight: 600 !important;
-        transition: background-color 0.2s !important;
-        width: 100% !important;
-    }}
-    
-    .stButton>button:hover {{
-        background-color: {hover_color} !important;
-        color: white !important;
-    }}
-    
-    /* Carrousel d'Actualités */
-    .carousel-container {{
-        background-color: {card_bg};
-        border-radius: 20px;
-        padding: 26px;
-        margin-bottom: 22px;
-        border: 1px solid {border_color};
-        box-shadow: 0 6px 25px rgba(85, 81, 255, 0.05);
-        position: relative;
-    }}
-    
-    .carousel-badge {{
-        background-color: rgba(85, 81, 255, 0.1);
-        color: {accent_color};
-        padding: 6px 14px;
-        border-radius: 50px;
-        font-size: 0.8rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-block;
-        margin-bottom: 14px;
-    }}
-    
-    .carousel-title {{
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: {text_primary};
-        margin-bottom: 8px;
-    }}
-    
-    .carousel-desc {{
-        font-size: 0.98rem;
-        color: {text_secondary};
-        line-height: 1.6;
-        margin-bottom: 22px;
-    }}
-
-    /* Pied de page stylisé */
-    .buse-footer {{
-        margin-top: 50px;
-        padding: 20px 0;
-        border-top: 1px solid {border_color};
-        text-align: center;
-        font-size: 0.8rem;
-        color: {text_secondary};
-    }}
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F4F5FC;
+            color: #1E203B;
+            overflow-x: hidden;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+        /* Style personnalisé pour les cartes épurées de la maquette (Photo 2) */
+        .maquette-card {
+            background-color: #FFFFFF;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .maquette-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 12px 30px rgba(85, 81, 255, 0.1);
+            border-color: rgba(85, 81, 255, 0.25);
+        }
+        /* Mode Contraste Élevé */
+        .high-contrast {
+            background-color: #000000 !important;
+            color: #FFFFFF !important;
+        }
+        .high-contrast .maquette-card {
+            background-color: #111111 !important;
+            border-color: #FFFF00 !important;
+            color: #FFFFFF !important;
+        }
+        .high-contrast h1, .high-contrast h2, .high-contrast h3, .high-contrast p, .high-contrast span {
+            color: #FFFFFF !important;
+        }
+        .high-contrast button, .high-contrast .st-btn-act {
+            background-color: #FFFF00 !important;
+            color: #000000 !important;
+            border: 2px solid #FFFFFF !important;
+        }
+        /* Cacher la scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Chouette logo hover effects */
+        .chouette-logo {
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .chouette-logo:hover {
+            transform: rotate(5deg) scale(1.05);
+        }
+        /* Effet moderne de lueur sur boutons */
+        .btn-glow {
+            box-shadow: 0 4px 14px rgba(85, 81, 255, 0.3);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .btn-glow:hover {
+            box-shadow: 0 6px 20px rgba(85, 81, 255, 0.5);
+            transform: translateY(-2px) scale(1.02);
+        }
+        .btn-glow:active {
+            transform: translateY(1px) scale(0.98);
+        }
     </style>
-    """ + (audio_hover_js if st.session_state.get('audio_on_hover', False) else ""), unsafe_allow_html=True)
+</head>
+<body class="flex min-h-screen bg-[#F4F5FC] transition-colors duration-200">
 
-# --- BLOC DE PIED DE PAGE COMMUN (MENTIONS LÉGALES & COPYRIGHT) ---
-def render_footer_credits():
-    current_year = datetime.now().year
-    st.markdown(
-        f"""
-        <div class="buse-footer" data-tts="Mentions legales. Plateforme independante de surveillance salariale et d audit. Copyright {current_year} La Buse. Tous droits reserves.">
-            <p style="margin-bottom: 6px; font-weight: 600;">La Buse — Plateforme indépendante de surveillance salariale & d'audit</p>
-            <p style="margin-bottom: 4px; font-size: 0.75rem; line-height: 1.4;">
+    <!-- ================= ÉCRAN D'ACCÈS SÉCURISÉ (PIN) ================= -->
+    <div id="pin-screen" class="fixed inset-0 bg-[#F4F5FC] z-50 flex flex-col items-center justify-center p-4 animate-fade-in">
+        <!-- Logo chouette Photo 2 -->
+        <div style="width: 140px; height: 140px; background: radial-gradient(circle, #E8E7FF 0%, #C3BFFF 100%); border-radius: 50%; position: relative; box-shadow: 0 10px 30px rgba(85, 81, 255, 0.25); display: flex; align-items: center; justify-content: center; margin-bottom: 25px;" class="chouette-logo">
+            <div style="position: absolute; top: 12px; left: 28px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 35px solid #5551FF; transform: rotate(-18deg);"></div>
+            <div style="position: absolute; top: 12px; right: 28px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 35px solid #5551FF; transform: rotate(18deg);"></div>
+            <div style="width: 90px; height: 105px; background-color: #5551FF; border-radius: 50% 50% 45% 45%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <div style="position: absolute; bottom: -8px; width: 70px; height: 70px; background-color: #F4F5FC; border-radius: 50%;"></div>
+            </div>
+            <div style="position: absolute; top: 40px; left: 32px; width: 38px; height: 38px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);">
+                <div style="width: 22px; height: 22px; background-color: #574B3C; border-radius: 50%; position: relative;">
+                    <div style="width: 12px; height: 12px; background-color: #1E203B; border-radius: 50%;">
+                        <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div style="position: absolute; top: 40px; right: 32px; width: 38px; height: 38px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);">
+                <div style="width: 22px; height: 22px; background-color: #574B3C; border-radius: 50%; position: relative;">
+                    <div style="width: 12px; height: 12px; background-color: #1E203B; border-radius: 50%;">
+                        <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div style="position: absolute; top: 68px; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 15px solid #FF9F43; z-index: 10;"></div>
+        </div>
+        <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-xl w-full max-w-sm text-center">
+            <h2 class="text-2xl font-extrabold text-[#1E203B] mb-2">Accès sécurisé</h2>
+            <p class="text-xs text-gray-400 mb-6">Saisissez votre code PIN pour accéder à la plateforme d'audit</p>
+            <input type="password" id="pin-input" maxlength="4" placeholder="••••" class="w-full text-center bg-[#F4F5FC] border border-transparent rounded-2xl py-4 text-2xl tracking-widest outline-none focus:border-[#5551FF] focus:bg-white transition-all mb-4">
+            <button onclick="unlockApp()" class="w-full bg-[#5551FF] text-white py-4 rounded-2xl font-bold hover:bg-[#413CFF] transition-all duration-300 transform active:scale-95 shadow-md hover:shadow-lg hover:shadow-[#5551FF]/20">Déverrouiller</button>
+            <p id="pin-error" class="text-xs text-red-500 font-semibold mt-3 hidden animate-shake">Code PIN incorrect. Veuillez réessayer.</p>
+        </div>
+    </div>
+
+    <!-- ================= BARRE LATÉRALE GAUCHE (MENU & ACCESSIBILITÉ) ================= -->
+    <aside id="sidebar" class="w-64 bg-white border-r border-gray-100 flex flex-col shrink-0 z-20 hidden">
+        <div class="p-6 border-b border-gray-100 flex items-center gap-3">
+            <div class="w-11 h-11 rounded-full bg-[#E8E7FF] flex items-center justify-center relative shadow-sm shrink-0 chouette-logo cursor-pointer">
+                <div class="w-2.5 h-2.5 bg-[#5551FF] rounded-full absolute top-3.5 left-2.5"></div>
+                <div class="w-2.5 h-2.5 bg-[#5551FF] rounded-full absolute top-3.5 right-2.5"></div>
+                <div class="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-top-[7px] border-top-[#FF9F43] absolute bottom-3.5"></div>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold text-[#1E203B] tracking-tight" data-tts="La buse">la buse</h1>
+                <span class="text-xs text-[#5551FF] font-bold">Abonnement Actif</span>
+            </div>
+        </div>
+
+        <nav class="flex-1 p-4 space-y-1 overflow-y-auto no-scrollbar">
+            <button onclick="switchView('Accueil')" id="btn-menu-Accueil" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-semibold text-[#5551FF] bg-[#5551FF]/10 transition-all duration-300 transform active:scale-95 hover:bg-[#5551FF]/20" data-tts="Onglet Accueil">
+                <span>🏠</span> Accueil
+            </button>
+            <button onclick="switchView('Sentinelles')" id="btn-menu-Sentinelles" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-semibold text-gray-600 hover:bg-gray-50 transition-all duration-300 transform active:scale-95" data-tts="Onglet Réseau Sentinelles">
+                <span>🛡️</span> Réseau Sentinelles
+            </button>
+            <button onclick="switchView('Primes')" id="btn-menu-Primes" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-semibold text-gray-600 hover:bg-gray-50 transition-all duration-300 transform active:scale-95" data-tts="Onglet Calculateur de primes">
+                <span>💎</span> Calculateur de primes
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-gray-100 space-y-4">
+            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Configuration</h4>
+            
+            <div class="space-y-3 text-sm text-gray-700">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold">♿ Mode non voyant</span>
+                    <input type="checkbox" id="chk-non-voyant" onchange="toggleNonVoyant(this)" class="accent-[#5551FF] w-4 h-4 cursor-pointer">
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold">🔊 Audio au survol</span>
+                    <input type="checkbox" id="chk-audio-hover" onchange="toggleAudioHover(this)" class="accent-[#5551FF] w-4 h-4 cursor-pointer">
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold">🌓 Contraste élevé</span>
+                    <input type="checkbox" id="chk-contrast" onchange="toggleContrast(this)" class="accent-[#5551FF] w-4 h-4 cursor-pointer">
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold">📝 Transcription</span>
+                    <input type="checkbox" id="chk-transcription" onchange="toggleTranscription(this)" class="accent-[#5551FF] w-4 h-4 cursor-pointer">
+                </div>
+            </div>
+
+            <button onclick="resetAccessibility()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 rounded-xl text-xs transition-all duration-300 transform active:scale-95">
+                Mode Normal (Normal)
+            </button>
+        </div>
+    </aside>
+
+    <!-- ================= CONTENUR DE PAGE ASYMÉTRIQUE ================= -->
+    <div id="main-content-layout" class="flex-1 flex flex-col min-w-0 overflow-hidden hidden animate-fade-in">
+        
+        <!-- En-tête Global de Recherche & Profil -->
+        <header class="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 shrink-0 z-10">
+            <div class="w-96 relative">
+                <input type="text" id="global-search" placeholder="Rechercher un sujet, une question..." class="w-full bg-[#F4F5FC] border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[#5551FF] focus:bg-white transition-all">
+                <span class="absolute left-3.5 top-3.5 text-gray-400 text-sm">🔍</span>
+            </div>
+            
+            <div class="flex items-center gap-6">
+                <button onclick="switchView('Sentinelles')" class="bg-[#5551FF] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#413CFF] transition-all duration-300 transform active:scale-95 shadow-sm hover:shadow-lg hover:shadow-[#5551FF]/20" data-tts="Saisir un expert">Saisir un expert</button>
+                <div class="w-px h-6 bg-gray-200"></div>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-[#5551FF] text-white flex items-center justify-center font-bold shadow-md">A</div>
+                    <div>
+                        <span class="text-xs text-gray-400 block font-medium">Bienvenue</span>
+                        <strong class="text-sm text-[#1E203B] block font-bold">Alexandre</strong>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Zone de Défilement Principale -->
+        <div class="flex-1 flex overflow-hidden">
+            
+            <!-- CONTENU CENTRAL LARGE -->
+            <div class="flex-1 p-8 overflow-y-auto no-scrollbar">
+                
+                <!-- ================= VUE : ACCUEIL ================= -->
+                <section id="view-Accueil" class="view-section space-y-8 animate-fade-in">
+                    <!-- Section Titre Maquette -->
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-8 bg-white p-8 rounded-3xl border border-gray-100 relative overflow-hidden">
+                        <div class="space-y-4 max-w-xl z-10">
+                            <h2 class="text-4xl font-extrabold text-[#1E203B] leading-tight animate-slide-up" data-tts="La buse, votre moteur de recherche au service du monde du travail.">
+                                La buse, votre moteur <br>de recherche au service <br><span class="text-[#5551FF]">du monde du travail.</span>
+                            </h2>
+                            <p class="text-gray-500 text-base" data-tts="Posez vos questions, vérifiez vos primes et passez à l'action.">Posez vos questions, vérifiez vos primes et passez à l'action.</p>
+                        </div>
+                        
+                        <!-- Mascotte Chouette Ronde de la Photo 2 -->
+                        <div class="shrink-0 z-10">
+                            <div style="width: 150px; height: 150px; background: radial-gradient(circle, #E8E7FF 0%, #C3BFFF 100%); border-radius: 50%; position: relative; box-shadow: 0 10px 30px rgba(85, 81, 255, 0.25); display: flex; align-items: center; justify-content: center;" class="chouette-logo cursor-pointer">
+                                <div style="position: absolute; top: 12px; left: 28px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 35px solid #5551FF; transform: rotate(-18deg);"></div>
+                                <div style="position: absolute; top: 12px; right: 28px; width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 35px solid #5551FF; transform: rotate(18deg);"></div>
+                                <div style="width: 90px; height: 105px; background-color: #5551FF; border-radius: 50% 50% 45% 45%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                                    <div style="position: absolute; bottom: -8px; width: 70px; height: 70px; background-color: #F4F5FC; border-radius: 50%;"></div>
+                                </div>
+                                <div style="position: absolute; top: 40px; left: 32px; width: 38px; height: 38px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);">
+                                    <div style="width: 22px; height: 22px; background-color: #574B3C; border-radius: 50%; position: relative;">
+                                        <div style="width: 12px; height: 12px; background-color: #1E203B; border-radius: 50%;">
+                                            <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="position: absolute; top: 40px; right: 32px; width: 38px; height: 38px; background-color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);">
+                                    <div style="width: 22px; height: 22px; background-color: #574B3C; border-radius: 50%; position: relative;">
+                                        <div style="width: 12px; height: 12px; background-color: #1E203B; border-radius: 50%;">
+                                            <div style="width: 5px; height: 5px; background-color: #FFFFFF; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="position: absolute; top: 68px; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 15px solid #FF9F43; z-index: 10;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ================= FUSION : EAGLE AGENT & AUDIT DOCUMENTAIRE MULTI-FICHIERS ================= -->
+                    <div class="maquette-card p-6 space-y-6">
+                        <div class="flex items-center gap-3">
+                            <span class="text-4xl transition-transform duration-300 hover:rotate-12 cursor-pointer">🦅</span>
+                            <div>
+                                <h3 class="text-lg font-bold text-[#1E203B]">Eagle Agent IA — Assistant de Recherche & Audit de Documents</h3>
+                                <p class="text-xs text-gray-500">Posez vos questions juridiques ou déposez vos pièces pour une analyse croisée immédiate (Légifrance & Juritravail).</p>
+                            </div>
+                        </div>
+
+                        <!-- Dropzone d'importation multi-documents -->
+                        <div class="border-2 border-dashed border-gray-200 hover:border-[#5551FF] rounded-2xl p-6 text-center transition-all duration-300 relative bg-gray-50/50 hover:bg-[#5551FF]/5">
+                            <input type="file" id="multi-doc-uploader" multiple onchange="handleMultiFileUpload()" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                            <span class="text-4xl block mb-2">📂</span>
+                            <strong class="text-sm text-[#1E203B] block">Glissez vos pièces ici ou cliquez pour parcourir</strong>
+                            <span class="text-xs text-gray-400 mt-1 block">Fiches de paie, Contrats, Avenants, CV (PDF, PNG, JPG)</span>
+                        </div>
+
+                        <!-- Liste dynamique des documents importés -->
+                        <div id="uploaded-files-container" class="hidden flex flex-wrap gap-2 pt-2">
+                            <!-- Généré via JS -->
+                        </div>
+
+                        <!-- Formulaire de question d'accueil -->
+                        <div class="space-y-4">
+                            <div class="flex gap-3">
+                                <input type="text" id="home-search-input" placeholder="Posez votre question réglementaire ou demandez un audit (Ex: Mon contrat est-il conforme ?)..." class="flex-1 bg-white border border-gray-200 rounded-2xl px-5 py-4 text-sm outline-none focus:border-[#5551FF] transition-all shadow-sm">
+                                <button onclick="triggerHomeGrokSearch()" class="bg-[#5551FF] text-white px-8 py-4 rounded-2xl font-bold btn-glow shrink-0 shadow-lg">Lancer l'audit</button>
+                            </div>
+                            
+                            <!-- Zone d'animation de chargement sémantique Grok AI -->
+                            <div id="grok-loader" class="hidden maquette-card p-6 border border-[#5551FF]/20 bg-[#5551FF]/5 space-y-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="animate-spin text-xl">⚡</span>
+                                    <strong class="text-sm text-[#5551FF]" id="grok-loader-step">Initialisation du moteur de recherche Grok AI...</strong>
+                                </div>
+                            </div>
+
+                            <!-- Affichage de la réponse directly en dessous de la recherche -->
+                            <div id="home-answer-card" class="hidden maquette-card p-6 border-2 border-[#5551FF] bg-[#5551FF]/5 space-y-4">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="font-bold text-lg text-[#1E203B]">Rapport d'analyse de conformité (Juritravail & Légifrance)</h4>
+                                    <button onclick="hideHomeAnswer()" class="text-gray-400 hover:text-gray-600 text-xs font-semibold">Masquer ✖</button>
+                                </div>
+                                <p id="home-answer-text" class="text-sm text-gray-800 leading-relaxed"></p>
+                                <div class="flex gap-3 items-center">
+                                    <button id="btn-listen-home-answer" class="bg-[#5551FF] text-white font-semibold px-4 py-2 rounded-xl text-xs hover:bg-[#413CFF] transition-all duration-300 transform active:scale-95">🔊 Écouter la réponse</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Suggestions Rapides d'Accueil -->
+                    <div class="space-y-2">
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Suggestions rapides</span>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="setHomeQuery('Puis-je refuser des heures supplémentaires ?')" class="bg-white border border-gray-200 hover:border-[#5551FF] text-xs font-medium text-gray-700 px-4 py-2.5 rounded-xl transition-all">Puis-je refuser des heures supplémentaires ?</button>
+                            <button onclick="setHomeQuery('Quelles sont mes indemnités en cas de licenciement ?')" class="bg-white border border-gray-200 hover:border-[#5551FF] text-xs font-medium text-gray-700 px-4 py-2.5 rounded-xl transition-all">Quelles sont mes indemnités en cas de licenciement ?</button>
+                            <button onclick="setHomeQuery('Mon employeur peut-il modifier mon contrat ?')" class="bg-white border border-gray-200 hover:border-[#5551FF] text-xs font-medium text-gray-700 px-4 py-2.5 rounded-xl transition-all">Mon employeur peut-il modifier mon contrat ?</button>
+                        </div>
+                    </div>
+
+                    <!-- Carrousel d'Informations interactif et dynamique -->
+                    <div class="carousel-container maquette-card">
+                        <span id="carousel-badge" class="carousel-badge" data-tts="Prévention">Prévention RPS</span>
+                        <h3 id="carousel-title" class="carousel-title" data-tts="Votre santé est une priorité absolue">🛡️ Votre santé est une priorité absolue</h3>
+                        <p id="carousel-desc" class="carousel-desc" data-tts="L'employeur est légalement tenu de protéger votre santé physique et mentale (Article L4121-1 du Code du travail).">L'employeur est légalement tenu de protéger votre santé physique et mentale (Article L4121-1 du Code du travail).</p>
+                        
+                        <div class="flex items-center gap-3">
+                            <button onclick="prevCarousel()" class="bg-[#F4F5FC] hover:bg-[#E8E7FF] text-[#5551FF] font-semibold px-4 py-2 rounded-xl text-xs transition-all duration-300 transform active:scale-95">⬅️ Précédent</button>
+                            <button onclick="nextCarousel()" class="bg-[#F4F5FC] hover:bg-[#E8E7FF] text-[#5551FF] font-semibold px-4 py-2 rounded-xl text-xs transition-all duration-300 transform active:scale-95">Suivant ➡️</button>
+                        </div>
+                    </div>
+
+                    <!-- Grille Actions (Ce que La buse peut faire pour vous) -->
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-bold text-[#1E203B]" data-tts="Ce que la buse peut faire pour vous">Ce que La buse peut faire pour vous</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div onclick="switchView('Accueil')" class="maquette-card p-6 cursor-pointer flex gap-4 items-start" data-tts="Dalle Eagle Agent.">
+                                <span class="text-3xl transition-transform duration-300 hover:rotate-12">🦅</span>
+                                <div>
+                                    <h4 class="font-bold text-lg text-[#1E203B]">Eagle Agent IA & Audit</h4>
+                                    <p class="text-sm text-gray-500 mt-1">Posez vos questions et importez vos pièces d'audit (CV, contrats, fiches de paie) pour déceler des anomalies de salaire.</p>
+                                </div>
+                            </div>
+                            <div onclick="switchView('Sentinelles')" class="maquette-card p-6 cursor-pointer flex gap-4 items-start" data-tts="Dalle Réseau Sentinelles.">
+                                <span class="text-3xl transition-transform duration-300 hover:rotate-12">🛡</span>
+                                <div>
+                                    <h4 class="font-bold text-lg text-[#1E203B]">Réseau Sentinelles</h4>
+                                    <p class="text-sm text-gray-500 mt-1">Soyez mis en relation avec des délégués syndicaux ou des avocats spécialistes de proximité.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bannière d'Action Premium (Photo 2) -->
+                    <div class="bg-gradient-to-r from-[#5551FF] to-[#413CFF] text-white p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6" data-tts="Vos droits. Notre mission.">
+                        <div class="space-y-2">
+                            <h3 class="text-xl font-bold">Vos droits. Notre mission.</h3>
+                            <p class="text-sm text-blue-100">La buse vous aide à comprendre, vérifier et défendre vos droits au travail en toute sécurité.</p>
+                        </div>
+                        <button onclick="switchView('Sentinelles')" class="bg-white text-[#5551FF] font-semibold px-6 py-3 rounded-xl shadow-sm hover:bg-gray-50 transition-all duration-300 transform active:scale-95 shrink-0">Contacter un expert</button>
+                    </div>
+
+                    <!-- Colonnes de réassurance de la Photo 2 -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4">
+                        <div class="text-center" data-tts="Fiable & sourcé">
+                            <span class="text-2xl block mb-2 transition-transform duration-300 hover:scale-110 cursor-pointer">🛡️</span>
+                            <strong class="text-xs font-bold text-gray-700 block">Fiable & sourcé</strong>
+                            <span class="text-[10px] text-gray-400">Bases sur la loi</span>
+                        </div>
+                        <div class="text-center" data-tts="Confidentiel">
+                            <span class="text-2xl block mb-2 transition-transform duration-300 hover:scale-110 cursor-pointer">🔒</span>
+                            <strong class="text-xs font-bold text-gray-700 block">Confidentiel</strong>
+                            <span class="text-[10px] text-gray-400">Données protégées</span>
+                        </div>
+                        <div class="text-center" data-tts="À jour">
+                            <span class="text-2xl block mb-2 transition-transform duration-300 hover:scale-110 cursor-pointer">📅</span>
+                            <strong class="text-xs font-bold text-gray-700 block">À jour</strong>
+                            <span class="text-[10px] text-gray-400">Mises à jour régulières</span>
+                        </div>
+                        <div class="text-center" data-tts="Accessible à tous">
+                            <span class="text-2xl block mb-2 transition-transform duration-300 hover:scale-110 cursor-pointer">👥</span>
+                            <strong class="text-xs font-bold text-gray-700 block">Accessible à tous</strong>
+                            <span class="text-[10px] text-gray-400">Zéro barrière</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ================= VUE : SENTINELLES ================= -->
+                <section id="view-Sentinelles" class="view-section hidden space-y-6">
+                    <div class="mb-4">
+                        <h2 class="text-3xl font-bold text-[#1E203B] mb-2" data-tts="Réseau des sentinelles et experts de proximité">🛡️ Réseau Sentinelles</h2>
+                        <p class="text-gray-500 text-sm">Recherchez un avocat ou un délégué spécialiste en droit social à proximité de Niort / Saint-Maxire (79).</p>
+                    </div>
+
+                    <!-- Bouton Pop-up de Localisation Navigateur -->
+                    <div class="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                        <div>
+                            <strong class="text-sm text-[#1E203B] block">📍 Optimisez votre réseau par géolocalisation</strong>
+                            <span class="text-xs text-gray-400">Demande l'accès GPS du navigateur pour calculer les distances réelles de nos services.</span>
+                        </div>
+                        <button onclick="requestHTML5Location()" class="bg-[#5551FF] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-[#413CFF] transition-all shrink-0 duration-300 transform active:scale-95 shadow-md">Autoriser la localisation</button>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <input type="text" id="sentinel-filter" onkeyup="filterSentinelles()" placeholder="Rechercher par avocat, syndicat, département (ex: 79)..." class="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#5551FF] transition-all shadow-sm">
+                    </div>
+
+                    <div id="sentinel-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Rendu dynamique JS -->
+                    </div>
+                </section>
+
+                <!-- ================= VUE : PRIMES ================= -->
+                <section id="view-Primes" class="view-section hidden space-y-6">
+                    <div class="mb-4">
+                        <h2 class="text-3xl font-bold text-[#1E203B] mb-2" data-tts="Calculateurs de primes et de salaire">💎 Calculateurs Primes & Salaires</h2>
+                        <p class="text-gray-500 text-sm">Estimez vos primes d'écart Infinity, votre salaire net et vos indemnités de maladie.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="space-y-6">
+                            <!-- Calculateur Prime d'écart Infinity -->
+                            <div class="maquette-card p-6 space-y-4">
+                                <h3 class="text-lg font-bold text-[#1E203B] flex items-center gap-2"><span>📈</span> Prime d'écart Infinity</h3>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Chiffre d'Affaire Réalisé Magasin (€)</label>
+                                    <input type="number" id="calc-ca" value="1850" oninput="updatePrimesAndSalaries()" class="w-full bg-[#F4F5FC] border border-transparent rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#5551FF] focus:bg-white transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Heures Travaillées dans le Mois</label>
+                                    <input type="number" id="calc-hours" value="48" oninput="updatePrimesAndSalaries()" class="w-full bg-[#F4F5FC] border border-transparent rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#5551FF] focus:bg-white transition-all">
+                                </div>
+                                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 flex justify-between items-center">
+                                    <div>
+                                        <span class="text-xs text-blue-500 block">Prime estimée :</span>
+                                        <strong id="out-bonus" class="text-2xl font-bold text-[#5551FF]">0%</strong>
+                                    </div>
+                                    <span id="out-ecart" class="text-xs text-blue-600 font-semibold">Écart: 550.00 €</span>
+                                </div>
+                            </div>
+
+                            <!-- Simulateur Salaire Brut -> Net & IJ -->
+                            <div class="maquette-card p-6 space-y-4">
+                                <h3 class="text-lg font-bold text-[#1E203B] flex items-center gap-2"><span>💰</span> Simulateur de Salaire</h3>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Salaire Brut Mensuel (€)</label>
+                                    <input type="number" id="calc-brut" value="2100" oninput="updatePrimesAndSalaries()" class="w-full bg-[#F4F5FC] border border-transparent rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#5551FF] focus:bg-white transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Statut</label>
+                                    <select id="calc-status" onchange="updatePrimesAndSalaries()" class="w-full bg-[#F4F5FC] border border-transparent rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#5551FF] focus:bg-white transition-all">
+                                        <option value="non-cadre">Non-Cadre (Charges 22%)</option>
+                                        <option value="cadre">Cadre (Charges 25%)</option>
+                                    </select>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                        <span class="text-xs text-gray-500 block">Salaire Net</span>
+                                        <strong id="out-net" class="text-base text-gray-800">1638.00 €</strong>
+                                    </div>
+                                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                        <span class="text-xs text-gray-500 block">Indemnité IJ / Jour</span>
+                                        <strong id="out-ij" class="text-base text-gray-800">34.52 €</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Graphiques Interactifs -->
+                        <div class="space-y-6">
+                            <div class="maquette-card p-6">
+                                <h4 class="text-xs font-bold text-gray-500 uppercase mb-4 text-center">Visualisation du Seuil d'Écart</h4>
+                                <div class="chart-container">
+                                    <canvas id="chart-ca"></canvas>
+                                </div>
+                            </div>
+                            <div class="maquette-card p-6">
+                                <h4 class="text-xs font-bold text-gray-500 uppercase mb-4 text-center">Répartition Salaire Brut</h4>
+                                <div class="chart-container" style="height: 200px;">
+                                    <canvas id="chart-salary"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- ================= PANNEAU DE DROITE (ACCÈS RAPIDE - PHOTO 2) ================= -->
+            <aside class="w-80 bg-[#F4F5FC] border-l border-gray-100 p-6 space-y-6 hidden xl:block overflow-y-auto no-scrollbar">
+                
+                <!-- Outils Rapides -->
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Outils rapides</h4>
+                    <div class="bg-white p-4 rounded-2xl border border-gray-100 space-y-3 shadow-sm text-sm text-gray-700">
+                        <div onclick="switchView('Accueil')" class="flex items-center gap-2 cursor-pointer hover:text-[#5551FF] transition-all"><span>📄</span> Analyser mes documents</div>
+                        <div onclick="switchView('Accueil')" class="flex items-center gap-2 cursor-pointer hover:text-[#5551FF] transition-all"><span>⚖️</span> Poser une question IA</div>
+                        <div onclick="switchView('Sentinelles')" class="flex items-center gap-2 cursor-pointer hover:text-[#5551FF] transition-all"><span>🔍</span> Consulter mes droits</div>
+                        <div onclick="switchView('Primes')" class="flex items-center gap-2 cursor-pointer hover:text-[#5551FF] transition-all"><span>💎</span> Simuler une prime</div>
+                    </div>
+                </div>
+
+                <!-- Section Aide Immédiate -->
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Besoin d'aide immédiate ?</h4>
+                    <div class="bg-[#E8E7FF]/40 p-4 rounded-2xl border border-[#5551FF]/10 text-sm space-y-4">
+                        <p class="text-xs text-gray-500">Nos experts du réseau Sentinelles sont connectés et à votre écoute.</p>
+                        <button onclick="switchView('Sentinelles')" class="w-full bg-[#5551FF] text-white py-2.5 rounded-xl text-xs font-bold hover:bg-[#413CFF] transition-all duration-300 transform active:scale-95 shadow-md">Être mis en relation</button>
+                    </div>
+                </div>
+
+            </aside>
+
+        </div>
+
+    </div>
+
+    <!-- Pied de page permanent avec Mentions Légales et Copyright (Photo 2) -->
+    <footer id="main-footer" class="w-full bg-white border-t border-gray-100 py-6 px-8 z-10 text-center shrink-0 hidden">
+        <div class="max-w-4xl mx-auto space-y-2 text-xs text-gray-400">
+            <p class="font-bold text-gray-500">🦉 La Buse — Plateforme indépendante de surveillance salariale & d'audit</p>
+            <p class="line-clamp-2 hover:line-clamp-none transition-all duration-300">
                 <strong>Mentions Légales :</strong> Initiative privée indépendante de tout organisme étatique ou syndical. 
-                Les analyses d'audit, de conformité et de primes sont délivrées à titre purement indicatif et s'appuient sur l'état du droit en vigueur et des bases de connaissances conventionnelles. Elles ne se substituent pas à un conseil juridique personnalisé.
+                Les analyses d'audit, de conformité et de primes sont délivrées à titre purement indicatif et s'appuient sur l'état du droit en vigueur et des bases de connaissances conventionnelles (Légifrance, Juritravail). Elles ne se substituent pas à un conseil juridique personnalisé.
             </p>
-            <p style="margin-top: 8px; font-size: 0.75rem; font-weight: 500;">
-                Copyright © {current_year} — La Buse. Tous droits réservés.
+            <p class="font-semibold">
+                Copyright © <span id="copyright-year"></span> — La Buse. Tous droits réservés.
             </p>
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+    </footer>
 
-# --- CONSOLE EXPERTE DE RÉPONSES LOCALES AVEC MOTEUR GROK (xAI) ---
-def call_eagle_ia_local(prompt, context=""):
-    p_lower = prompt.lower()
-    intro_grok = "⚡ **Grok (xAI) — Analyse Légale & Sémantique en temps réel**\n\n"
-    
-    if "harcèlement" in p_lower or "rps" in p_lower or "pression" in p_lower or "épuisement" in p_lower or "souffrance" in p_lower or "licenciement" in p_lower or "indemnit" in p_lower:
-        if "indemnit" in p_lower or "licenciement" in p_lower:
-            return (
-                f"{intro_grok}"
-                "D'après les dispositions du Code du travail régissant la rupture du contrat de travail de manière permanente :\n\n"
-                "### 1. Mode de calcul de vos indemnités de licenciement\n"
-                "L'indemnité légale de licenciement est calculée à partir de votre salaire brut de référence avant la rupture (Article R1234-2 du Code du travail) :\n"
-                "- **Un quart (1/4) de mois de salaire** par année d'ancienneté pour les 10 premières années.\n"
-                "- **Un tiers (1/3) de mois de salaire** par année d'ancienneté pour les années à partir de la 11ème année.\n\n"
-                "### 2. Le salaire de référence à retenir\n"
-                "Le calcul s'effectue sur la formule la plus avantageuse pour vous (moyenne des 12 derniers mois ou des 3 derniers mois).\n\n"
-                "### 3. Les démarches de conformité recommandées par Grok\n"
-                "- **Vérifier l'existence de clauses conventionnelles ou d'accords d'entreprise plus favorables** auprès d'un expert de votre région.\n"
-                "- Rassembler tous vos bulletins de paie et votre contrat initial de travail avant tout entretien."
-            )
-        else:
-            return (
-                f"{intro_grok}"
-                "Face à une situation de souffrance psychologique, d'épuisement ou de harcèlement moral au travail :\n\n"
-                "### Anomalies et Non-respect détectés :\n"
-                "- Atteinte potentielle à l'Article L4121-1 du Code du travail concernant l'obligation légale de protection de la santé mentale et physique.\n"
-                "- Manquement suspecté aux règles de prévention des risques psychosociaux (RPS).\n\n"
-                "### Protocole d'action recommandé :\n"
-                "1. **Consignez de manière écrite tous les faits :** Prenez des notes détaillées (faits précis, dates, heures, propos tenus, collègues présents ou témoins éventuels).\n"
-                "2. **Alertez l'employeur ou son représentant :** Rappelez son obligation de sécurité par écrit.\n"
-                "3. **Contactez la Médecine du Travail :** Sollicitez une visite médicale de votre propre initiative."
-            )
-    elif "heure" in p_lower or "planning" in p_lower or "délai" in p_lower:
-        return (
-            f"{intro_grok}"
-            "Selon la réglementation en vigueur du droit du travail :\n\n"
-            "### Anomalies et Non-respect détectés :\n"
-            "- Non-respect suspecté du délai de prévenance légal de 7 jours pour la modification de vos horaires.\n"
-            "- Défaut de paiement ou de majoration réglementaire de vos heures supplémentaires effectuées au-delà des 35 heures.\n\n"
-            "### Droits à faire valoir :\n"
-            "- **Délai de prévenance :** Vos horaires collectifs ou individuels doivent être connus au moins 7 jours à l'avance.\n"
-            "- **Majoration des Heures Supplémentaires :** Taux de majoration de 25% pour les 8 premières heures, et 50% au-delà."
-        )
-    elif "nuit" in p_lower:
-        return (
-            f"{intro_grok}"
-            "Sous le régime général du droit du travail :\n\n"
-            "### Anomalies et Non-respect détectés :\n"
-            "- Suspicion de non-respect de la plage horaire légale de nuit (21h00 - 6h00) sans compensation ni majoration salariale de 25% minimum.\n\n"
-            "### Vos garanties réglementaires :\n"
-            "- Les heures effectuées durant la période de nuit ouvrent droit à des compensations sous forme de repos compensateur ou de majoration de salaire."
-        )
-    elif "lefebvre" in p_lower:
-        return (
-            f"{intro_grok}"
-            "Vous avez sollicité l'assistance de Maître Lefebvre, avocat spécialisé en droit social au barreau des Deux-Sèvres (Niort).\n\n"
-            "**Préconisations de dossier :**\n"
-            "Pour que Maître Lefebvre puisse évaluer l'opportunité d'un recours prud'homal (heures supplémentaires non payées, harcèlement moral, licenciement sans cause réelle et sérieuse), préparez :\n"
-            "- Vos 12 derniers bulletins de salaire.\n"
-            "- Votre contrat de travail et ses avenants (avenant de prime Infinity V4 inclus).\n"
-            "- Tout écrit (e-mails, SMS, plannings réels) étayant vos demandes."
-        )
-    else:
-        return (
-            f"{intro_grok}"
-            f"Votre requête concernant '{prompt}' a bien été intégrée à notre outil de conformité.\n\n"
-            "D'un point de vue général, la législation du travail impose un respect strict des temps de repos quotidiens (11 heures consécutives) et hebdomadaires (35 heures consécutives).\n"
-            "N'hésitez pas à vous rapprocher de notre réseau local dans l'onglet **Réseau Sentinelles** pour obtenir l'assistance d'un délégué ou d'un juriste à proximité."
-        )
-
-def generate_browser_speech_widget(text):
-    """Génère un widget d'élocution robuste basé sur le Web Speech API et immune aux conflits de caractères"""
-    encoded_text = urllib.parse.quote(text)
-    html_code = f"""
-    <button onclick="
-        try {{
-            var synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
-            if (synth) {{
-                synth.cancel();
-                var textToSpeak = decodeURIComponent('{encoded_text}');
-                var utterance = new SpeechSynthesisUtterance(textToSpeak);
-                utterance.lang = 'fr-FR';
-                utterance.rate = 1.0;
-                synth.speak(utterance);
-            }} else {{
-                console.error('SpeechSynthesis non accessible.');
-            }}
-        }} catch(e) {{
-            console.error('Erreur widget lecture:', e);
-        }}
-    " style="
-        background-color: #5551FF;
-        color: white;
-        border: none;
-        padding: 10px 18px;
-        border-radius: 10px;
-        cursor: pointer;
-        font-weight: 600;
-        margin-top: 10px;
-        font-family: sans-serif;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-    ">🔊 Écouter la réponse</button>
-    """
-    st.components.v1.html(html_code, height=65)
-
-# --- CONSTRUCTEUR DE MAIL AUTOMATIQUE SÉCURISÉ ---
-def generate_prefilled_mail_link(expert_name, expert_email, include_proofs=False):
-    history = st.session_state.get('ai_history', [])
-    last_query = ""
-    last_answer = ""
-    if len(history) > 0:
-        last_query = history[-1]["q"]
-        last_answer = history[-1]["a"]
-        
-    statut_preuves = "Des pièces d'audit de conformité (bulletins de salaire, plannings réels, avenants de contrat) ont été rattachées comme éléments de preuve à ce dossier." if include_proofs else "Aucune pièce d'audit n'est transmise dans cette première prise de contact (preuves factuelles à consolider lors de notre entretien)."
-
-    # Construction d'un mail hautement professionnel
-    subject = f"Prise de contact d'urgence - Analyse de conformité La Buse"
-    
-    body = f"Bonjour {expert_name},\n\n" \
-           f"Je vous sollicite en tant que Sentinelle afin d'obtenir vos conseils et d'évaluer l'opportunité d'une démarche d'accompagnement ou d'un éventuel recours prud'homal.\n\n" \
-           f"Mes échanges avec l'assistant de conformité sémantique Grok ont mis en lumière les éléments factuels suivants :\n"
-           
-    if last_query:
-        body += f"- Situation exposée : \"{last_query}\"\n"
-        if "harcèlement" in last_query.lower() or "rps" in last_query.lower() or "pression" in last_query.lower():
-            body += f"- Manquement suspecté : Atteinte à l'obligation générale de sécurité et de santé de l'employeur (Article L4121-1 du Code du travail).\n"
-        elif "heure" in last_query.lower() or "planning" in last_query.lower():
-            body += f"- Manquement suspecté : Non-respect des délais de prévenance et défaut de majorations pour heures supplémentaires.\n"
-        elif "nuit" in last_query.lower():
-            body += f"- Manquement suspecté : Défaut de majorations ou de repos compensateurs pour travail de nuit.\n"
-    else:
-        body += f"- Situation exposée : Demande d'examen de conformité globale de mes bulletins de salaire et de mes primes contractuelles (Infinity V4).\n"
-        
-    body += f"\nStatut des preuves :\n{statut_preuves}\n\n" \
-           f"Je me tiens à votre entière disposition pour convenir d'un échange rapide.\n\n" \
-           f"Cordialement,\n" \
-           f"Utilisateur Certifié - Plateforme d'accessibilité La Buse"
-
-    encoded_subject = urllib.parse.quote(subject)
-    encoded_body = urllib.parse.quote(body)
-    
-    return f"mailto:{expert_email}?subject={encoded_subject}&body={encoded_body}"
-
-# --- CALCULATEURS DE PRIMES INFINITY V4 ---
-def calculate_infinity_v4(ca_perso, heures_mois=48):
-    seuil_base = 1300.0
-    declencheur = 411.69
-    ecart = ca_perso - seuil_base
-    if ecart < declencheur:
-        return ecart, "0%", "#FF4B4B", 0
-    ratio_reel = (ecart - declencheur) / heures_mois
-    if ratio_reel >= 16: return ecart, "100%", "#00FF00", 100
-    if ratio_reel >= 13: return ecart, "60%", "#5551FF", 60
-    if ratio_reel >= 10: return ecart, "40%", "#D4AF37", 40
-    if ratio_reel >= 7: return ecart, "20%", "#D4AF37", 20
-    return ecart, "DÉPLAFONNÉ (0%+)", "#D4AF37", 5
-
-# --- POP-UP DE GÉOLOCALISATION SÉCURISÉE (HTML5) ---
-def inject_geoloc_popup_widget():
-    geoloc_js = """
+    <!-- ================= CODE JAVASCRIPT GLOBAL ================= -->
     <script>
-    (function() {
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                var lat = position.coords.latitude;
-                var lon = position.coords.longitude;
-                console.log("Géolocalisation réussie : " + lat + ", " + lon);
-                document.cookie = "buse_lat=" + lat + "; path=/";
-                document.cookie = "buse_lon=" + lon + "; path=/";
-            }, function(error) {
-                console.warn("Autorisation refusée ou indisponible.");
+        // Base de données par défaut (en cas d'absence ou erreur de chargement experts_data.json)
+        let EXPERT_DIRECTORY = [
+            {"Type": "Avocat Spécialisé", "Nom": "Maître Lefebvre - Cabinet Droit du Travail Niort", "Contact": "05 49 24 88 99", "Email": "m.lefebvre@avocats-niort-travail.fr", "Adresse": "24 Rue de la Gare, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3210, "lon": -0.4580, "Desc": "Expert reconnu en défense des salariés, contentieux prud'homal, requalification de contrats et harcèlement moral."},
+            {"Type": "Avocat Spécialisé", "Nom": "Cabinet d'Avocats Droit du Travail Niortais", "Contact": "05 49 24 10 20", "Email": "secretariat@travail-niort-avocats.fr", "Adresse": "12 Rue de la Regratterie, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3235, "lon": -0.4635, "Desc": "Spécialisé en licenciements individuels, collectifs, contrats de travail et Risques Psychosociaux (RPS)."},
+            {"Type": "Avocat Spécialisé", "Nom": "Maître Claire Valois - Barreau des Deux-Sèvres", "Contact": "05 49 77 15 30", "Email": "c.valois@deux-sevres-avocats.fr", "Adresse": "45 Avenue de Limoges, 79000 Niort", "lat": 46.3190, "lon": -0.4480, "Desc": "Conseil et défense des salariés devant le Conseil de Prud'hommes de Niort."},
+            {"Type": "Union Syndicale", "Nom": "UD CFDT Deux-Sèvres", "Contact": "05 49 24 51 32", "Email": "ud-79@cfdt.fr", "Adresse": "Maison des Syndicats, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3280, "lon": -0.4610, "Desc": "Accompagnement syndical, permanence juridique et défense des droits des salariés du secteur privé."},
+            {"Type": "Union Syndicale", "Nom": "Union Départementale CGT 79", "Contact": "05 49 24 35 12", "Email": "ud79@cgt.fr", "Adresse": "Place de la Comédie, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3262, "lon": -0.4595, "Desc": "Permanences juridiques et défense collective face au harcèlement et à la pression au travail."},
+            {"Type": "Défenseur des Droits", "Nom": "Point d'Accès au Droit - Maison de la Justice Niort", "Contact": "05 49 04 00 00", "Email": "pad-niort@justice.fr", "Adresse": "10 Rue du Tribunal, 79000 Niort", "Departement": "79", "Region": "Nouvelle-Aquitaine", "lat": 46.3242, "lon": -0.4645, "Desc": "Médiateur de proximité indépendant pour la défense de vos libertés individuelles au travail."}
+        ];
+
+        const CAROUSEL_ITEMS = [
+            {"badge": "Prévention RPS", "titre": "🛡️ Votre santé est une priorité absolue", "description": "L'employeur est légalement tenu de protéger votre santé physique et mentale (Article L4121-1 du Code du travail)."},
+            {"badge": "Primes & Salaires", "titre": "📈 Déplafonnement de prime Infinity V4", "description": "Atteignez les paliers de bonus de 20% à 100% en surveillant votre écart de CA magasin par rapport au seuil de référence de 1300 €."},
+            {"badge": "Vos Droits", "titre": "⚖️ Droits & Prévoyance du Salarié", "description": "Bénéficiez de grilles de salaires garanties, de majorations pour heures de nuit et de garanties de prévoyance spécifiques."}
+        ];
+
+        // États de session locaux
+        let sessionState = {
+            carousel_index: 0,
+            audio_on_hover: false,
+            non_voyant: false,
+            high_contrast: false,
+            transcription: false,
+            user_location: { lat: 46.3235, lon: -0.4635 }, // Niort par défaut
+            ai_history: [],
+            uploaded_files: []
+        };
+
+        let chartCaObj = null;
+        let chartSalaryObj = null;
+
+        // --- CONTRÔLE D'ACCÈS PIN CODE ---
+        function unlockApp() {
+            const pinVal = document.getElementById('pin-input').value;
+            if (pinVal === '1234') {
+                document.getElementById('pin-screen').classList.add('hidden');
+                document.getElementById('sidebar').classList.remove('hidden');
+                document.getElementById('main-content-layout').classList.remove('hidden');
+                document.getElementById('main-footer').classList.remove('hidden');
+                switchView('Accueil');
+                toast("🔓 Accès déverrouillé avec succès !");
+            } else {
+                const err = document.getElementById('pin-error');
+                err.classList.remove('hidden');
+                document.getElementById('pin-input').value = "";
+            }
+        }
+
+        // Écoute de la touche Entrée sur le champ de saisie du PIN
+        document.getElementById('pin-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                unlockApp();
+            }
+        });
+
+        // --- ROUTAGE DES ONGLES ---
+        function switchView(viewId) {
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
+            const targetSection = document.getElementById('view-' + viewId);
+            if(targetSection) targetSection.classList.remove('hidden');
+
+            // Mise à jour de la classe CSS du bouton de menu actif
+            document.querySelectorAll('aside nav button').forEach(btn => {
+                btn.classList.remove('text-[#5551FF]', 'bg-[#5551FF]/10');
+                btn.classList.add('text-gray-600', 'hover:bg-gray-50');
+            });
+
+            const activeBtn = document.getElementById('btn-menu-' + viewId);
+            if(activeBtn) {
+                activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-50');
+                activeBtn.classList.add('text-[#5551FF]', 'bg-[#5551FF]/10');
+            }
+
+            // Rafraîchir les visualisations au besoin
+            if(viewId === 'Primes') {
+                updatePrimesAndSalaries();
+            } else if(viewId === 'Sentinelles') {
+                renderSentinelles();
+            }
+        }
+
+        // --- CONTRÔLES D'ACCESSIBILITÉ ---
+        function toggleNonVoyant(cb) {
+            sessionState.non_voyant = cb.checked;
+            document.getElementById('chk-non-voyant').checked = cb.checked;
+            document.body.style.fontSize = cb.checked ? "120%" : "100%";
+        }
+
+        function toggleAudioHover(cb) {
+            sessionState.audio_on_hover = cb.checked;
+            document.getElementById('chk-audio-hover').checked = cb.checked;
+            toast(cb.checked ? "Audio au survol activé." : "Audio au survol coupé.");
+        }
+
+        function toggleContrast(cb) {
+            sessionState.high_contrast = cb.checked;
+            document.getElementById('chk-contrast').checked = cb.checked;
+            if(cb.checked) {
+                document.body.classList.add('high-contrast');
+            } else {
+                document.body.classList.remove('high-contrast');
+            }
+        }
+
+        // --- SYNTHÈSE VOCALE SPEECH ---
+        function speakText(text) {
+            try {
+                var synth = window.speechSynthesis || (window.parent && window.parent.speechSynthesis);
+                if (synth) {
+                    synth.cancel();
+                    var utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = "fr-FR";
+                    synth.speak(utterance);
+                }
+            } catch(e) {
+                console.error("Synthese vocale inaccessible :", e);
+            }
+        }
+
+        function toggleTranscription(cb) {
+            sessionState.transcription = cb.checked;
+            document.getElementById('chk-transcription').checked = cb.checked;
+            toast(cb.checked ? "Transcription activée." : "Transcription coupée.");
+        }
+
+        function resetAccessibility() {
+            sessionState.non_voyant = false;
+            sessionState.audio_on_hover = false;
+            sessionState.high_contrast = false;
+            sessionState.transcription = false;
+            
+            document.getElementById('chk-non-voyant').checked = false;
+            document.getElementById('chk-audio-hover').checked = false;
+            document.getElementById('chk-contrast').checked = false;
+            document.getElementById('chk-transcription').checked = false;
+            
+            document.body.style.fontSize = "100%";
+            document.body.classList.remove('high-contrast');
+            toast("Accessibilité réinitialisée.");
+        }
+
+        // --- CARROUSEL ACTU ---
+        function nextCarousel() {
+            sessionState.carousel_index = (sessionState.carousel_index + 1) % CAROUSEL_ITEMS.length;
+            renderCarousel();
+        }
+
+        function prevCarousel() {
+            sessionState.carousel_index = (sessionState.carousel_index - 1) % CAROUSEL_ITEMS.length;
+            renderCarousel();
+        }
+
+        function renderCarousel() {
+            const item = CAROUSEL_ITEMS[sessionState.carousel_index];
+            document.getElementById('carousel-badge').innerText = item.badge;
+            document.getElementById('carousel-badge').setAttribute('data-tts', item.badge);
+            document.getElementById('carousel-title').innerText = item.titre;
+            document.getElementById('carousel-title').setAttribute('data-tts', item.titre);
+            document.getElementById('carousel-desc').innerText = item.description;
+            document.getElementById('carousel-desc').setAttribute('data-tts', item.description);
+        }
+
+        // --- MODULE MULTI-DOCUMENTS D'EAGLE ---
+        function handleMultiFileUpload() {
+            const fileInput = document.getElementById('multi-doc-uploader');
+            const container = document.getElementById('uploaded-files-container');
+            container.innerHTML = "";
+            sessionState.uploaded_files = [];
+
+            if (fileInput.files.length > 0) {
+                container.classList.remove('hidden');
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    sessionState.uploaded_files.push(file.name);
+                    
+                    // Rendu de badge individuel avec bouton de suppression
+                    const badgeId = `uploaded-badge-${i}`;
+                    container.innerHTML += `
+                        <span id="${badgeId}" class="inline-flex items-center gap-1.5 bg-[#5551FF]/10 text-[#5551FF] font-bold text-xs px-3 py-1.5 rounded-full border border-[#5551FF]/20">
+                            📄 ${file.name}
+                            <button onclick="removeUploadedFile('${file.name}', '${badgeId}')" class="text-red-500 hover:text-red-700 ml-1 font-bold">✖</button>
+                        </span>
+                    `;
+                }
+                toast(`📎 ${fileInput.files.length} document(s) rattaché(s) à l'analyse sémantique.`);
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function removeUploadedFile(fileName, badgeId) {
+            sessionState.uploaded_files = sessionState.uploaded_files.filter(f => f !== fileName);
+            const badge = document.getElementById(badgeId);
+            if (badge) {
+                badge.remove();
+            }
+            if (sessionState.uploaded_files.length === 0) {
+                document.getElementById('uploaded-files-container').classList.add('hidden');
+            }
+            toast(`🗑️ Document "${fileName}" retiré de l'analyse.`);
+        }
+
+        // --- RECHERCHE ET ANIMATION GROK AI (ACCUEIL) ---
+        function setHomeQuery(query) {
+            document.getElementById('home-search-input').value = query;
+            triggerHomeGrokSearch();
+        }
+
+        function triggerHomeGrokSearch() {
+            const query = document.getElementById('home-search-input').value.trim();
+            if(!query) return;
+
+            const loader = document.getElementById('grok-loader');
+            const loaderStep = document.getElementById('grok-loader-step');
+            const answerCard = document.getElementById('home-answer-card');
+
+            answerCard.classList.add('hidden');
+            loader.classList.remove('hidden');
+
+            const steps = [
+                "🔍 Exploration sémantique de la base de données Légifrance & Juritravail...",
+                "⚖️ Interrogation des sources réglementaires & jurisprudences de branche...",
+                "📊 Analyse comparative de vos pièces justificatives téléversées...",
+                "⚡ Structuration de votre rapport d'analyse de conformité..."
+            ];
+
+            let stepIdx = 0;
+            const interval = setInterval(() => {
+                if(stepIdx < steps.length) {
+                    loaderStep.innerText = steps[stepIdx];
+                    stepIdx++;
+                } else {
+                    clearInterval(interval);
+                    loader.classList.add('hidden');
+                    
+                    // Génération de la réponse Grok AI
+                    const answer = call_eagle_ia_local(query, sessionState.uploaded_files);
+                    sessionState.ai_history.push({ q: query, a: answer });
+
+                    document.getElementById('home-answer-text').innerHTML = answer.replace(/\n/g, '<br>');
+                    answerCard.classList.remove('hidden');
+
+                    // Configuration du bouton d'écoute audio
+                    document.getElementById('btn-listen-home-answer').onclick = function() {
+                        speakText(answer);
+                    };
+                }
+            }, 600);
+        }
+
+        function hideHomeAnswer() {
+            document.getElementById('home-answer-card').classList.add('hidden');
+        }
+
+        // --- CONTEXT COGNITIF GROK AI AVEC JURITRAVAIL & MULTI-DOCS ---
+        function call_eagle_ia_local(prompt, files = []) {
+            const p_lower = prompt.toLowerCase();
+            const intro = "⚡ **Grok (xAI) — Analyse sémantique Légale & Base Jurisprudence Juritravail**\n\n";
+            let doc_context = "";
+
+            if (files && files.length > 0) {
+                doc_context = `ℹ️ **Documents analysés conjointement** : \`${files.join(', ')}\`\n`;
+                doc_context += "- **Analyse de Pièces** : Détection des incohérences de salaires conventionnels, d'heures de nuit ou de classification de poste.\n\n";
+            }
+
+            if (p_lower.includes("harcèlement") || p_lower.includes("rps") || p_lower.includes("pression") || p_lower.includes("licenciement") || p_lower.includes("indemnit")) {
+                if (p_lower.includes("licenciement") || p_lower.includes("indemnit")) {
+                    return intro + doc_context + "### 📑 Analyse d'Indemnités de Licenciement (Code du Travail & Juritravail) :\n\n" +
+                           "1. **Mode de calcul** : 1/4 de mois de salaire par année d'ancienneté pour les 10 premières années (Article R1234-2).\n" +
+                           "2. **Calcul de l'indemnité conventionnelle** : Des clauses spécifiques s'appliquent sur vos primes récurrentes d'écart Infinity.\n\n" +
+                           "### ⚠️ Anomalie détectée : \n" +
+                           "Si vos pièces ne mentionnent pas l'intégration de vos variables de CA, vos calculs de primes de licenciement sont sous-évalués.";
+                }
+                return intro + doc_context + "### 🛡️ Risques Psychosociaux & Santé mentale (Article L4121-1) :\n" +
+                       "L'employeur détient une obligation de sécurité de résultat quant à votre santé. L'absence d'enquête ou de mesures d'accompagnement directes est considérée comme un délit conventionnel majeur.\n\n" +
+                       "### Recommandations de protection :\n" +
+                       "Consignez par écrit les faits précis et notifiez immédiatement le médecin du travail de Niort.";
+            } else if (p_lower.includes("heure") || p_lower.includes("planning") || p_lower.includes("délai")) {
+                return intro + doc_context + "### ⚖️ Horaires & Délais de Prévenance (Juritravail) :\n" +
+                       "- **Planning de garde/travail** : L'employeur doit vous notifier de tout changement au moins 7 jours à l'avance.\n" +
+                       "- **Heures supplémentaires** : Majoration de 25% pour les 8 premières heures, et 50% au-delà.";
+            } else {
+                return intro + doc_context + "Analyse Grok complétée pour votre requête. Vos droits conventionnels imposent un repos quotidien de 11h consécutives et hebdomadaire de 35h consécutives.";
+            }
+        }
+
+        // --- ACCÈS DE GÉOLOCALISATION SÉCURISÉE ---
+        function requestHTML5Location() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    sessionState.user_location.lat = pos.coords.latitude;
+                    sessionState.user_location.lon = pos.coords.longitude;
+                    toast("📍 Coordonnées récupérées avec succès !");
+                    renderSentinelles();
+                }, (err) => {
+                    // Fallback : Demande manuelle de coordonnées / code postal en cas d'échec d'iframe
+                    const manualPostal = prompt("📍 Entrez votre ville ou code postal à Niort (ex: 79000) pour trier les experts par proximité :");
+                    if (manualPostal) {
+                        toast(`📍 Position calibrée sur : ${manualPostal}`);
+                        // Coordonnées approximatives de Niort pour le fallback
+                        sessionState.user_location.lat = 46.3235;
+                        sessionState.user_location.lon = -0.4635;
+                        renderSentinelles();
+                    }
+                });
+            }
+        }
+
+        // --- CALCUL DE DISTANCE HAVERSINE ---
+        function haversine_distance(lat1, lon1, lat2, lon2) {
+            const R = 6371.0;
+            const dlat = (lat2 - lat1) * Math.PI / 180;
+            const dlon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dlat / 2) * Math.sin(dlat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dlon / 2) * Math.sin(dlon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // --- RENDU ET EMAIL DES SENTINELLES ---
+        function renderSentinelles(filter = "") {
+            const container = document.getElementById('sentinel-list');
+            container.innerHTML = "";
+
+            const sorted = EXPERT_DIRECTORY.map(exp => {
+                const dist = haversine_distance(sessionState.user_location.lat, sessionState.user_location.lon, exp.lat, exp.lon);
+                return { ...exp, distance: dist };
+            }).sort((a, b) => a.distance - b.distance);
+
+            sorted.filter(exp => 
+                exp.Nom.toLowerCase().includes(filter.toLowerCase()) || 
+                exp.Adresse.toLowerCase().includes(filter.toLowerCase()) ||
+                exp.Departement?.toLowerCase().includes(filter.toLowerCase())
+            ).forEach((exp, idx) => {
+                const badgeColor = exp.Type === "Avocat Spécialisé" ? "bg-purple-50 text-purple-700 border-purple-100" : "bg-yellow-50 text-yellow-700 border-yellow-100";
+                
+                container.innerHTML += `
+                    <div class="maquette-card p-6 flex flex-col justify-between space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="px-2.5 py-1 text-xs font-bold border rounded-full ${badgeColor}">${exp.Type}</span>
+                                <span class="text-xs text-[#5551FF] font-bold">📍 À ${exp.distance.toFixed(1)} km</span>
+                            </div>
+                            <h4 class="font-bold text-[#1E203B] text-lg">${exp.Nom}</h4>
+                            <p class="text-xs text-gray-400">${exp.Adresse} ${exp.Departement ? '(Dép: ' + exp.Departement + ')' : ''}</p>
+                            <p class="text-sm text-gray-600">${exp.Desc}</p>
+                            
+                            <label class="flex items-center gap-2 pt-2 cursor-pointer">
+                                <input type="checkbox" id="chk-proof-${idx}" class="accent-[#5551FF]">
+                                <span class="text-xs text-gray-500">Joindre mes preuves d'audit sémantique</span>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-gray-50 pt-3">
+                            <strong class="text-sm text-gray-800">📞 ${exp.Contact}</strong>
+                            <button onclick="triggerDirectMail('${exp.Nom}', '${exp.Email}', ${idx})" class="bg-[#5551FF] hover:bg-[#413CFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all duration-300 transform active:scale-95 shadow-md">
+                                ✉saisir Saisir / Contacter
+                            </button>
+                        </div>
+                    </div>
+                `;
             });
         }
-    })();
+
+        function triggerDirectMail(name, email, idx) {
+            const includeProofs = document.getElementById('chk-proof-' + idx).checked;
+            const history = sessionState.ai_history;
+            
+            let lastQuery = "";
+            let lastAnswer = "";
+            if(history.length > 0) {
+                lastQuery = history[history.length - 1].q;
+                lastAnswer = history[history.length - 1].a;
+            }
+
+            const subject = "Demande d'accompagnement d'urgence - Alexandre via La Buse";
+            let body = `Bonjour ${name},\n\n`;
+            body += "Je vous sollicite en tant que Sentinelle afin d'obtenir vos conseils et d'évaluer l'opportunité d'une démarche d'accompagnement.\n\n";
+            
+            if(lastQuery) {
+                body += `Mes échanges avec l'assistant de conformité Grok ont mis en lumière les éléments factuels suivants : "${lastQuery}"\n`;
+            } else {
+                body += "Situation exposée : Demande d'examen de conformité globale de mes bulletins de salaire et de mes primes contractuelles (Infinity V4).\n";
+            }
+
+            body += `\nStatut des preuves rattachées : ${includeProofs ? "Pièces d'audit jointes (bulletins de salaire, contrats)" : "Preuves à fournir lors de notre rendez-vous"}\n\n`;
+            body += "Cordialement,\nAlexandre - Utilisateur Certifié La Buse";
+
+            const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(mailtoUrl, '_blank');
+        }
+
+        function filterSentinelles() {
+            const val = document.getElementById('sentinel-filter').value;
+            renderSentinelles(val);
+        }
+
+        // --- CALCULATEUR DE PRÉLÈVEMENTS & CHARGES (CHART.JS) ---
+        function initPrimesAndSalariesCharts() {
+            const ctxCa = document.getElementById('chart-ca').getContext('2d');
+            chartCaObj = new Chart(ctxCa, {
+                type: 'bar',
+                data: {
+                    labels: ['Seuil 1300€', 'Seuil Prime', 'CA Réalisé'],
+                    datasets: [{
+                        data: [1300, 1711.69, 1850],
+                        backgroundColor: ['#EBEBFF', '#D8D6FF', '#5551FF'],
+                        borderRadius: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const ctxSal = document.getElementById('chart-salary').getContext('2d');
+            chartSalaryObj = new Chart(ctxSal, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Salaire Net', 'Prélèvements/Charges'],
+                    datasets: [{
+                        data: [1638.00, 462.00],
+                        backgroundColor: ['#5551FF', '#E8E7FF'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function updatePrimesAndSalaries() {
+            const ca = parseFloat(document.getElementById('calc-ca').value) || 0;
+            const hours = parseFloat(document.getElementById('calc-hours').value) || 1;
+            const brut = parseFloat(document.getElementById('calc-brut').value) || 0;
+            const status = document.getElementById('calc-status').value;
+
+            // Calcul primes
+            const ecart = ca - 1300;
+            let bonus = "0%";
+            if(ecart >= 411.69) {
+                const ratio = (ecart - 411.69) / hours;
+                if(ratio >= 16) bonus = "100%";
+                else if(ratio >= 13) bonus = "60%";
+                else if(ratio >= 10) bonus = "40%";
+                else if(ratio >= 7) bonus = "20%";
+            }
+            document.getElementById('out-bonus').innerText = bonus;
+            document.getElementById('out-ecart').innerText = `Écart: ${ecart.toFixed(2)} €`;
+
+            // Calcul salaires
+            const charges = status === 'cadre' ? 0.25 : 0.22;
+            const net = brut * (1 - charges);
+            const ij = Math.min((brut / 30.42) * 0.5, 52.04);
+            document.getElementById('out-net').innerText = `${net.toFixed(2)} €`;
+            document.getElementById('out-ij').innerText = `${ij.toFixed(2)} €`;
+
+            if(chartCaObj) {
+                chartCaObj.data.datasets[0].data[2] = ca;
+                chartCaObj.update();
+            }
+            if(chartSalaryObj) {
+                chartSalaryObj.data.datasets[0].data = [net, brut - net];
+                chartSalaryObj.update();
+            }
+        }
+
+        function toast(msg) {
+            const div = document.createElement('div');
+            div.className = "fixed bottom-5 right-5 bg-[#5551FF] text-white py-3 px-6 rounded-2xl shadow-lg z-50 text-sm font-bold animate-bounce";
+            div.innerText = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 2500);
+        }
+
+        // --- SCRIPT ACCESSIBILITÉ VOCALE AU SURVOL TRANSMIS PAR L'UTILISATEUR ---
+        (function() {
+            let lastText = "";
+            let hoverTimer = null;
+            document.addEventListener('mouseover', (e) => {
+                if(!sessionState.audio_on_hover) return;
+                const el = e.target;
+                if(!el) return;
+
+                let targetEl = el;
+                let textToRead = "";
+                let depth = 0;
+
+                while (targetEl && depth < 3) {
+                    textToRead = targetEl.getAttribute('data-tts') || targetEl.innerText || targetEl.textContent;
+                    if (targetEl.matches('h1, h2, h3, h4, p, span, li, button, .stMarkdown, .buse-card, label, .carousel-badge, [data-testid=stMarkdownContainer]')) {
+                        break;
+                    }
+                    targetEl = targetEl.parentElement;
+                    depth++;
+                }
+
+                if (textToRead && textToRead.trim().length > 0 && textToRead.trim().length < 300 && textToRead !== lastText) {
+                    clearTimeout(hoverTimer);
+                    hoverTimer = setTimeout(() => {
+                        speakText(textToRead.trim());
+                        lastText = textToRead;
+                    }, 120);
+                }
+            });
+
+            document.addEventListener('mouseout', () => {
+                lastText = "";
+            });
+        })();
+
+        // --- CHARGEMENT DE LA BASE DE DONNÉES DEPUIS GITHUB ---
+        async function fetchExternalExperts() {
+            try {
+                const response = await fetch('./experts_data.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.sentinelles) {
+                        EXPERT_DIRECTORY = data.sentinelles;
+                        renderSentinelles();
+                        console.log("Base de données d'experts chargée depuis experts_data.json.");
+                    }
+                }
+            } catch (e) {
+                console.warn("Impossible de charger experts_data.json. Utilisation de la base d'urgence.");
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('copyright-year').innerText = new Date().getFullYear();
+            fetchExternalExperts();
+            initPrimesAndSalariesCharts();
+            renderCarousel();
+        });
     </script>
-    """
-    st.components.v1.html(geoloc_js, height=0)
-
-# --- APPLICATION PRINCIPALE ---
-def main_app():
-    apply_ui_design_and_hover_tts()
-    
-    # Navigation asymétrique sans les onglets inutiles
-    menu_items = [
-        "Accueil",
-        "Eagle Agent (IA & RPS)",
-        "Analyse & Audit",
-        "Réseau Sentinelles",
-        "Calculateur de primes"
-    ]
-
-    with st.sidebar:
-        # En-tête de la barre latérale
-        st.markdown(
-            f"""
-            <div style='display: flex; align-items: center; justify-content: center; margin-bottom: 25px;'>
-                <div style='display: inline-block; width: 44px; height: 44px; background-color: #E8E7FF; border-radius: 50%; position: relative; margin-right: 12px; vertical-align: middle;'>
-                    <div style='position: absolute; top: 12px; left: 10px; width: 8px; height: 8px; background-color: #5551FF; border-radius: 50%;'></div>
-                    <div style='position: absolute; top: 12px; right: 10px; width: 8px; height: 8px; background-color: #5551FF; border-radius: 50%;'></div>
-                    <div style='position: absolute; bottom: 8px; left: 17px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 8px solid #FF9F43;'></div>
-                </div>
-                <span style='color:#5551FF; font-size:1.85rem; font-weight:800; vertical-align: middle; letter-spacing: -0.03em;'>la buse</span>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-        
-        nav = st.radio("MENU", menu_items, index=menu_items.index(st.session_state['sidebar_nav_v8']), key="sidebar_radio_selection_v8")
-        st.session_state['sidebar_nav_v8'] = nav
-        
-        # --- BLOC ACCESSIBILITÉ DE LA PHOTO 2 ( sidebar à gauche - OFF par défaut ) ---
-        st.markdown("---")
-        st.markdown("<h4>🔊 Accessibilité</h4>", unsafe_allow_html=True)
-        
-        # Contrôles par défaut à False (OFF)
-        non_voyant = st.toggle("♿ Mode non voyant", value=st.session_state['non_voyant'], key="tg_non_voyant_v10")
-        audio_on_hover = st.toggle("🔊 Audio au survol", value=st.session_state['audio_on_hover'], key="tg_audio_hover_v10")
-        high_contrast = st.toggle("🌓 Contraste élevé", value=st.session_state['high_contrast'], key="tg_contrast_v10")
-        transcription_audio = st.toggle("📝 Transcription audio", value=st.session_state['transcription_audio'], key="tg_trans_v10")
-        
-        # Application immédiate à la session de l'état
-        st.session_state['non_voyant'] = non_voyant
-        st.session_state['audio_on_hover'] = audio_on_hover
-        st.session_state['high_contrast'] = high_contrast
-        st.session_state['transcription_audio'] = transcription_audio
-        
-        # Possibilité de rebasculer en mode normal sans accessibilité
-        if st.button("Couper l'accessibilité", key="btn_reset_accessibility"):
-            st.session_state['non_voyant'] = False
-            st.session_state['audio_on_hover'] = False
-            st.session_state['high_contrast'] = False
-            st.session_state['transcription_audio'] = False
-            st.success("Mode normal rétabli !")
-            safe_rerun()
-            
-        st.markdown("---")
-        if st.button("DÉCONNEXION", key="btn_logout_main_v8"):
-            st.session_state['auth'] = False
-            st.session_state['loading_complete'] = False
-            st.session_state['sidebar_nav_v8'] = "Accueil"
-            st.rerun()
-
-    # --- ARCHITECTURE PAR DIVISION ASYMÉTRIQUE (Photo 2) ---
-    col_main, col_right_pane = st.columns([3, 1])
-
-    with col_main:
-        current_nav = st.session_state.get('sidebar_nav_v8', "Accueil")
-        
-        if current_nav == "Accueil":
-            # Section d'accueil fidèle à la mise en page de la Photo 2
-            col_text, col_mascotte = st.columns([2, 1])
-            with col_text:
-                st.markdown(
-                    """
-                    <h1 class='buse-title-primary' data-tts="La buse, votre moteur de recherche au service du monde du travail.">
-                        La buse, votre moteur <br>de recherche au service <br><span class='buse-highlight'>du monde du travail.</span>
-                    </h1>
-                    <p class='buse-subtitle'>Posez vos questions, analysez vos documents, comprenez vos droits et passez à l'action.</p>
-                    """, 
-                    unsafe_allow_html=True
-                )
-            with col_mascotte:
-                st.markdown(CHOUETTE_LOGO_HTML, unsafe_allow_html=True)
-                
-            # Formulaire de question d'accueil (Photo 2)
-            with st.form("home_search_form"):
-                search_q = st.text_input("Posez votre question sur le droit du travail...", placeholder="Ex : Quelles sont mes indemnités en cas de licenciement ?")
-                submit_q = st.form_submit_button("Lancer la recherche")
-                
-                if submit_q and search_q:
-                    # Enregistrement dans la file d'attente sémantique
-                    st.session_state['pending_query'] = search_q
-                    safe_rerun()
-
-            # --- DÉCLENCHEUR SÉMANTIQUE DE RECHERCHE ---
-            pending = st.session_state.get('pending_query')
-            if pending:
-                st.session_state['pending_query'] = None
-                with st.spinner("⚡ Recherche Grok AI en direct..."):
-                    progress_placeholder = st.empty()
-                    steps = [
-                        "🔍 Exploration sémantique de la base de données...",
-                        "⚖️ Interrogation des sources réglementaires & jurisprudences...",
-                        "📊 Analyse comparative de votre situation...",
-                        "⚡ Structuration de l'avis de conformité..."
-                    ]
-                    for step in steps:
-                        progress_placeholder.markdown(f"<p style='color:#5551FF; font-weight:600;'>{step}</p>", unsafe_allow_html=True)
-                        time.sleep(0.6)
-                    progress_placeholder.empty()
-                
-                answer = call_eagle_ia_local(pending)
-                st.session_state['home_query_answer'] = {"q": pending, "a": answer}
-                st.session_state['ai_history'].append({"q": pending, "a": answer})
-                st.toast("Analyse Grok complétée !")
-                safe_rerun()
-
-            # --- RENDU DE LA RÉPONSE DIRECTEMENT EN DESSOUS ---
-            home_ans = st.session_state.get('home_query_answer')
-            if home_ans:
-                st.markdown(
-                    f"""
-                    <div class="buse-card" style="border: 2px solid #5551FF; background-color: rgba(85, 81, 255, 0.02); margin-top: 15px;">
-                        <h4 style="font-weight:700; color:#1E203B; margin-bottom:10px;">Question : {home_ans['q']}</h4>
-                        <div style="font-size:0.95rem; line-height:1.6; color:#1E203B;">{home_ans['a'].replace('\\n', '<br>')}</div>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-                generate_browser_speech_widget(home_ans['a'])
-                if st.button("Masquer la réponse", key="btn_hide_home_answer"):
-                    st.session_state['home_query_answer'] = None
-                    safe_rerun()
-                
-            st.markdown("<p style='font-weight: 600; font-size: 0.95rem; margin-top: 15px;'>Suggestions rapides :</p>", unsafe_allow_html=True)
-            suggestions = [
-                "Puis-je refuser des heures supplémentaires ?",
-                "Quelles sont mes indemnités en cas de licenciement ?",
-                "Mon employeur peut-il modifier mon contrat ?"
-            ]
-            cols_sug = st.columns(3)
-            for idx, sug in enumerate(suggestions):
-                with cols_sug[idx]:
-                    if st.button(sug, key=f"sug_btn_{idx}_v8"):
-                        st.session_state['pending_query'] = sug
-                        safe_rerun()
-
-            # --- CARROUSEL D'INFORMATIONS INTERACTIF ---
-            st.markdown("<h3 style='margin-top: 30px; font-weight: 700; letter-spacing: -0.02em;'>Actualités & Informations Clés</h3>", unsafe_allow_html=True)
-            
-            current_item = CAROUSEL_ITEMS[st.session_state.get('carousel_index', 0)]
-            st.markdown(
-                f"""
-                <div class="carousel-container">
-                    <span class="carousel-badge" data-tts="{current_item['badge']}">{current_item['badge']}</span>
-                    <div class="carousel-title" data-tts="{current_item['titre']}">{current_item['titre']}</div>
-                    <div class="carousel-desc" data-tts="{current_item['description']}">{current_item['description']}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
-            col_prev, col_spacer, col_next = st.columns([1, 4, 1])
-            with col_prev:
-                if st.button("⬅️ Précédent", key="carousel_prev"):
-                    st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) - 1) % len(CAROUSEL_ITEMS)
-                    safe_rerun()
-            with col_next:
-                if st.button("Suivant ➡️", key="carousel_next"):
-                    st.session_state['carousel_index'] = (st.session_state.get('carousel_index', 0) + 1) % len(CAROUSEL_ITEMS)
-                    safe_rerun()
-
-            # Les 4 dalles d'actions principales de la Photo 2
-            st.markdown("<h3 style='margin-top: 40px; font-weight: 700;'>Ce que La buse peut faire pour vous</h3>", unsafe_allow_html=True)
-            grid_col1, grid_col2 = st.columns(2)
-            with grid_col1:
-                st.markdown(
-                    """
-                    <div class='buse-card' data-tts="Eagle Agent. Posez vos questions de droit du travail et obtenez des réponses.">
-                        <h4 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 8px;">Eagle Agent <span style="font-size: 0.8rem; background-color: rgba(85, 81, 255, 0.1); color: #5551FF; padding: 2px 8px; border-radius: 50px; font-weight: 700; margin-left: 6px;">IA</span></h4>
-                        <p style='font-size:0.92rem; color:#6B7280; line-height: 1.5;'>Posez toutes vos questions sur le droit du travail et obtenez des réponses fiables, sourcées et personnalisées.</p>
-                    </div>
-                    <div class='buse-card' data-tts="Réseau Sentinelles. Être mis en relation avec des délégués de proximité.">
-                        <h4 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 8px;">Réseau Sentinelles</h4>
-                        <p style='font-size:0.92rem; color:#6B7280; line-height: 1.5;'>Être mis en relation avec des délégués syndicaux ou des avocats spécialisés dans votre région.</p>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-            with grid_col2:
-                st.markdown(
-                    """
-                    <div class='buse-card' data-tts="Analyse CV et Audit. Détectez les anomalies de contrat.">
-                        <h4 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 8px;">Analyse CV & Audit</h4>
-                        <p style='font-size:0.92rem; color:#6B7280; line-height: 1.5;'>Détectez les anomalies, comparez votre contrat de travail avec les conventions collectives.</p>
-                    </div>
-                    <div class='buse-card' data-tts="Calculateur de primes. Estimez vos primes et salaires.">
-                        <h4 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 8px;">Calculateur de primes</h4>
-                        <p style='font-size:0.92rem; color:#6B7280; line-height: 1.5;'>Estimez vos primes (Infinity V4), vos indemnités de départ et vos salaires nets.</p>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-
-            # Bannière d'Action (Photo 2)
-            st.markdown(
-                """
-                <div class="carousel-container" style="background: linear-gradient(135deg, #5551FF 0%, #3D39E6 100%); color: white; border: none;">
-                    <div style="display: flex; align-items: center; gap: 20px;">
-                        <span style="font-size: 2.2rem;">🛡️</span>
-                        <div>
-                            <h3 style="font-size: 1.4rem; font-weight: 700; color: white; margin-bottom: 4px;">Vos droits. Notre mission.</h3>
-                            <p style="font-size: 0.92rem; color: rgba(255, 255, 255, 0.85); margin-bottom: 12px;">La buse vous aide à comprendre, vérifier et défendre vos droits au travail en toute sécurité.</p>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True
-            )
-            if st.button("Découvrir toutes les fonctionnalités", key="btn_discover_features_v8"):
-                st.toast("Toutes les fonctionnalités premium sont actives.")
-
-            # Section Réassurance bas de page (Photo 2)
-            st.markdown("---")
-            reass_col1, reass_col2, reass_col3, reass_col4 = st.columns(4)
-            with reass_col1:
-                st.markdown(
-                    """
-                    <div style="text-align: center; padding: 10px;" data-tts="Fiable et source">
-                        <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">🛡️</span>
-                        <strong style="font-size: 0.85rem; display: block; margin-bottom: 2px;">Fiable & sourcé</strong>
-                        <span style="font-size: 0.75rem; color: #6B7280; display: block;">Bases sur la loi</span>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-            with reass_col2:
-                st.markdown(
-                    """
-                    <div style="text-align: center; padding: 10px;" data-tts="Confidentiel">
-                        <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">🔒</span>
-                        <strong style="font-size: 0.85rem; display: block; margin-bottom: 2px;">Confidentiel</strong>
-                        <span style="font-size: 0.75rem; color: #6B7280; display: block;">Données protégées</span>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-            with reass_col3:
-                st.markdown(
-                    """
-                    <div style="text-align: center; padding: 10px;" data-tts="A jour">
-                        <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">📅</span>
-                        <strong style="font-size: 0.85rem; display: block; margin-bottom: 2px;">À jour</strong>
-                        <span style="font-size: 0.75rem; color: #6B7280; display: block;">Mises à jour régulières</span>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-            with reass_col4:
-                st.markdown(
-                    """
-                    <div style="text-align: center; padding: 10px;" data-tts="Accessible a tous">
-                        <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">👥</span>
-                        <strong style="font-size: 0.85rem; display: block; margin-bottom: 2px;">Accessible à tous</strong>
-                        <span style="font-size: 0.75rem; color: #6B7280; display: block;">Zéro barrière</span>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-
-        elif current_nav == "Eagle Agent (IA & RPS)":
-            st.markdown("<h2 class='glow-text'>🦅 Eagle Agent - Support & RPS</h2>", unsafe_allow_html=True)
-            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            with st.form("agent_search_form", clear_on_submit=True):
-                user_input = st.text_input("Posez votre question juridique ou signalez une difficulté (harcèlement, pressions, RPS) :", placeholder="Votre message...")
-                submit_agent = st.form_submit_button("Interroger l'Agent")
-                
-                if submit_agent and user_input:
-                    with st.spinner("Analyse sémantique Grok AI..."):
-                        response = call_eagle_ia_local(user_input, st.session_state.get('analysis_results', None))
-                        st.session_state['ai_history'].append({"q": user_input, "a": response})
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            for idx, chat in enumerate(reversed(st.session_state.get('ai_history', []))):
-                with st.expander(f"Question : {chat['q']}", expanded=True):
-                    st.markdown(chat['a'])
-                    generate_browser_speech_widget(chat['a'])
-
-        elif current_nav == "Analyse & Audit":
-            st.markdown("<h2 class='glow-text'>🔍 Analyse & Audit Documentaire</h2>", unsafe_allow_html=True)
-            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            doc_uploaded = st.file_uploader("Importer une fiche de paie ou un contrat", type=["pdf", "png", "jpg"], key="uploader_audit_v8")
-            if doc_uploaded:
-                if st.button("Lancer l'audit", key="btn_audit_action_v8"):
-                    st.session_state['analysis_results'] = "Analyse : Conformité validée. Vigilance recommandée sur les temps de repos."
-                    st.success("Audit complété !")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        elif current_nav == "Réseau Sentinelles":
-            st.markdown("<h2 class='glow-text'>🛡️ Réseau Sentinelles & Experts de proximité</h2>", unsafe_allow_html=True)
-            
-            col_acc_toggle, col_acc_reset = st.columns([2, 1])
-            with col_acc_toggle:
-                st.session_state['audio_on_hover'] = st.toggle("🔊 Activer l'accessibilité vocale au survol", value=st.session_state['audio_on_hover'], key="tg_sentinel_local_hover")
-            with col_acc_reset:
-                if st.button("Couper l'accessibilité", key="btn_sentinel_reset"):
-                    st.session_state['audio_on_hover'] = False
-                    st.session_state['non_voyant'] = False
-                    st.session_state['high_contrast'] = False
-                    st.success("Mode normal activé !")
-                    safe_rerun()
-            
-            # Déclencheur du pop-up d'autorisation de localisation géolocalisée (HTML5)
-            st.markdown("<h4 style='font-size: 1.1rem; color: #5551FF; margin-top:15px;'>📍 Optimisez les sentinelles par géolocalisation</h4>", unsafe_allow_html=True)
-            if st.button("Autoriser la géolocalisation (Demander l'autorisation d'accès)", key="btn_authorize_geoloc"):
-                inject_geoloc_popup_widget()
-                st.toast("Demande d'autorisation de localisation envoyée au navigateur.")
-            
-            # Focus automatique sur Maitre Lefebvre s'il a été appelé par l'ancre URL
-            if st.session_state.get('focus_expert') == "Maître Lefebvre":
-                st.success("📍 Focus appliqué sur : Maître Lefebvre (Demandé via URL)")
-                st.session_state['focus_expert'] = None
-                
-            df_sentinelles = pd.DataFrame(EXPERT_DIRECTORY)
-            st.map(df_sentinelles)
-            st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-            for d in EXPERT_DIRECTORY:
-                is_lefebvre = "Lefebvre" in d['Nom']
-                border_style = "border: 2px solid #5551FF; background-color: rgba(85, 81, 255, 0.03);" if is_lefebvre else ""
-                
-                # Checkbox dynamique pour joindre ou non les preuves d'audit au courriel de contact
-                include_proofs = st.checkbox(f"Joindre les preuves d'audit pour {d['Nom']}", value=(st.session_state.get('analysis_results') is not None), key=f"chk_proof_{d['Nom']}")
-                
-                # Construction du mailto pré-rempli
-                mailto_link = generate_prefilled_mail_link(d['Nom'], d['Email'], include_proofs=include_proofs)
-                
-                st.markdown(
-                    f"""
-                    <div class="buse-card" style="margin-bottom:15px; padding:15px; {border_style}" data-tts="{d['Nom']}">
-                        <strong style="color: #5551FF; font-size: 1.1rem;">📍 {d['Nom']}</strong><br>
-                        <span style="font-size:0.85rem; color:#6B7280;">({d['Type']}) — {d['Adresse']} — Dép : {d['Departement']}</span><br>
-                        <p style="font-size:0.9rem; margin-top:5px; line-height:1.4;">{d['Desc']}</p>
-                        <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <strong style="font-size:0.9rem; color:#1E203B;">📞 {d['Contact']}</strong>
-                            <a href="{mailto_link}" target="_blank" style="
-                                text-decoration: none;
-                                background-color: #5551FF;
-                                color: white;
-                                padding: 8px 14px;
-                                border-radius: 8px;
-                                font-size: 0.8rem;
-                                font-weight: 600;
-                                transition: background-color 0.2s;
-                            ">✉️ Envoyer mon dossier par Mail pré-rempli</a>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True
-                )
-                if is_lefebvre:
-                    if st.button("💬 Préparer mon dossier d'entretien avec Maître Lefebvre", key="btn_prep_lefebvre"):
-                        st.session_state['sidebar_nav_v8'] = "Eagle Agent (IA & RPS)"
-                        response_lef = call_eagle_ia_local("lefebvre")
-                        st.session_state['ai_history'].append({"q": "Comment préparer mon rendez-vous de droit du travail avec Maître Lefebvre ?", "a": response_lef})
-                        safe_rerun()
-                        
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        elif current_nav == "Calculateur de primes":
-            st.markdown("<h2 class='glow-text'>💎 Calculateur de Primes & Salaire</h2>", unsafe_allow_html=True)
-            col_inf, col_sal = st.columns(2)
-            with col_inf:
-                st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-                st.subheader("Prime Infinity (Barème PDF)")
-                ca_magasin = st.number_input("Chiffre d'Affaires réalisé Magasin (€)", value=1750.0, step=50.0, key="ca_mag_calc_v8")
-                h_travail = st.number_input("Heures réelles travaillées", value=48, step=1, key="h_pres_calc_v8")
-                ecart, bonus, color, progress = calculate_infinity_v4(ca_magasin, h_travail)
-                st.metric("Écart au seuil magasin (1300 €)", f"{ecart:.2f} €")
-                st.markdown(f"#### Prime : <span style='color:{color}; font-size:1.4em;'>{bonus}</span>", unsafe_allow_html=True)
-                st.progress(progress)
-                st.markdown("</div>", unsafe_allow_html=True)
-            with col_sal:
-                st.markdown("<div class='buse-card'>", unsafe_allow_html=True)
-                st.subheader("Simulateur de Revenus")
-                brut = st.number_input("Salaire Mensuel Brut (€)", value=2100.0, step=50.0, key="brut_salary_calc_v8")
-                statut = st.selectbox("Statut de l'employé", ["Non-Cadre (22%)", "Cadre (25%)"], key="statut_salary_calc_v8")
-                taux = 0.78 if "Non-Cadre" in statut else 0.75
-                st.write(f"### NET ESTIMÉ : **{brut * taux:.2f} €**")
-                st.write(f"### IJ Maladie de référence : **{min((brut / 30.42) * 0.5, 52.04):.2f} € / jour**")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-        # Pied de page
-        render_footer_credits()
-
-    # --- PANNEAU DE DROITE (ACCÈS RAPIDE, AIDE) ---
-    with col_right_pane:
-        st.markdown("<h4 class='glow-text' style='margin-bottom:15px; font-weight: 700; color: #1E203B;'>Outils rapides</h4>", unsafe_allow_html=True)
-        st.markdown(
-            """
-            <div class='buse-card' style='padding: 18px !important; margin-bottom: 20px !important;'>
-                <p style='margin-bottom:12px; font-weight:600; font-size:0.9rem; cursor: pointer;'>📄 Analyser mon CV</p>
-                <p style='margin-bottom:12px; font-weight:600; font-size:0.9rem; cursor: pointer;'>⚖️ Comparer mon contrat</p>
-                <p style='margin-bottom:12px; font-weight:600; font-size:0.9rem; cursor: pointer;'>🔍 Consulter mes droits</p>
-                <p style='margin-bottom:0px; font-weight:600; font-size:0.9rem; cursor: pointer;'>💎 Simuler une prime</p>
-            </div>
-            """, unsafe_allow_html=True
-        )
-        
-        st.markdown("<h4 class='glow-text' style='margin-bottom:15px; font-weight: 700; color: #1E203B;'>Besoin d'aide ?</h4>", unsafe_allow_html=True)
-        st.markdown(
-            """
-            <div class='buse-card' style='padding: 18px !important; margin-bottom: 15px !important;'>
-                <p style='font-size:0.85rem; color:#6B7280; margin-bottom:12px; line-height: 1.5;'>Nos experts du réseau Sentinelles sont à votre écoute immédiate.</p>
-            </div>
-            """, unsafe_allow_html=True
-        )
-        if st.button("Être mis en relation", key="btn_right_sentinel_action_v8"):
-            st.success("Mise en relation d'urgence demandée.")
-
-# --- INITIALISATION ÉQUILIBRÉE ET SÉCURISÉE ---
-def run_loading_sequence():
-    apply_ui_design_and_hover_tts()
-    _, col, _ = st.columns([1, 2, 1])
-    with col:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align:center;' class='glow-text'>la buse - initialisation...</h2>", unsafe_allow_html=True)
-        
-        # Résolution définitive du bug st.progress par l'utilisation d'un entier strict de 0 à 100 sans paramètre key
-        bar = st.progress(0.0)
-        for i in range(101):
-            time.sleep(0.005)
-            bar.progress(float(i) / 100.0)
-        st.session_state['loading_complete'] = True
-        safe_rerun()
-
-# --- SÉCURITÉ DE CODE PIN (Page de connexion Photo 2) ---
-if not st.session_state.get('auth', False):
-    apply_ui_design_and_hover_tts()
-    _, col, _ = st.columns([1, 1, 1])
-    with col:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        # Logo chouette inséré au-dessus du formulaire (Photo 2)
-        st.markdown(CHOUETTE_LOGO_HTML, unsafe_allow_html=True)
-        with st.container(border=True):
-            st.markdown("<h2 class='glow-text' style='text-align:center; font-family:Inter; color:#1E203B; font-weight:700;'>Accès sécurisé</h2>", unsafe_allow_html=True)
-            pin = st.text_input("Saisissez votre code PIN :", type="password", key="login_pin_v8")
-            if st.button("DÉVERROUILLER", key="btn_submit_login_v8"):
-                if pin == "1234":
-                    st.session_state['auth'] = True
-                    # Après déverrouillage, forçage strict du menu d'Accueil comme page principale
-                    st.session_state['sidebar_nav_v8'] = "Accueil"
-                    # Vérification de l'ancre d'URL de focus direct (ex: Maître Lefebvre)
-                    check_url_anchor_focus()
-                    safe_rerun()
-                else:
-                    st.error("PIN incorrect.")
-else:
-    if not st.session_state.get('loading_complete', False):
-        run_loading_sequence()
-    else:
-        main_app()
+</body>
+</html>
